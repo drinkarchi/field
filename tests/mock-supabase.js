@@ -8,6 +8,7 @@
   Q.prototype.range=function(a,b){this.r=[a,b];return this};
   Q.prototype.limit=function(n){this.lim=n;return this};
   Q.prototype.maybeSingle=function(){this.single=true;return this};
+  Q.prototype.delete=function(){this.op='delete';return this};
   Q.prototype.upsert=function(rows){this.op='upsert';this.payload=rows;return this};
   Q.prototype.then=function(res,rej){var me=this;return window.__db('query',{t:me.t,f:me.f,o:me.o,r:me.r,lim:me.lim,single:me.single,op:me.op,payload:me.payload,tok:localStorage.getItem('mock-tok')}).then(function(x){return JSON.parse(x)}).then(res,rej)};
   var listeners=[];window.__rt=function(row){listeners.forEach(function(f){f({new:row})})};

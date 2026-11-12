@@ -40,6 +40,7 @@ async function dbHandler(page, op, a) {
   if (a.t === 'profiles') {
     if (a.op === 'upsert') { if (!mgr(r)) return JSON.stringify({ error: { message: 'rls', code: '42501' }, status: 403 });
       a.payload.forEach(row => { const p = DB.profiles.find(x => x.app_id === row.app_id); if (p) Object.assign(p, row); else DB.profiles.push(Object.assign({ user_id: null }, row)); }); return JSON.stringify({ data: null, status: 201 }); }
+    if (a.op === 'delete') { if (!mgr(r)) return JSON.stringify({ error: { message: 'rls' }, status: 403 }); const id = a.f[0][2]; DB.profiles = DB.profiles.filter(p => p.app_id !== id); return JSON.stringify({ data: null, status: 204 }); }
     let rows = r ? DB.profiles.slice() : (a.f.some(f => f[1] === 'user_id') ? DB.profiles.filter(p => p.user_id === a.tok) : []);
     a.f.forEach(([k, c, v]) => { rows = rows.filter(x => k === 'eq' ? x[c] === v : x[c] > v); });
     return JSON.stringify({ data: a.single ? (rows[0] || null) : rows, status: 200 });
@@ -164,6 +165,17 @@ const click = async (p, sel) => { await p.click(sel); await p.waitForTimeout(250
   ok(!!sd && sd.data.gps!=null && sd.data.gps<50 && sd.data.photoFiles && sd.data.photoFiles.selfie, 'SPG absen selfie+GPS '+(sd&&JSON.stringify({gps:sd.data.gps,masuk:sd.data.masuk})));
   await spg.screenshot({ path: SHOT + '/9-spg.png', fullPage: true });
   console.log('errors spg:', spg.errs.filter(e=>!/fetching the script/.test(e)).slice(0,5));
+  // 8. Hapus pegawai nonaktif: tanpa riwayat boleh, dengan riwayat tidak
+  const r8 = await bm.evaluate(c => window.__AF(c), "(function(){ var y=user('yoga'); y.aktif=false; y.keluar=TODAY; var d=user('dimas'); var hd=userHist('dimas'); var hy=userHist('yoga'); save(); return {hd:hd,hy:hy}; })()");
+  await bm.waitForTimeout(600);
+  await bm.evaluate(c => window.__AF(c), "(function(){ UI.view='pengaturan'; render(); })()");
+  await bm.evaluate(() => { const b = [...document.querySelectorAll('[data-act]')].find(x => /^Tim/.test(x.textContent.trim()) && x.dataset.act !== 'go'); b && b.click(); });
+  await bm.waitForTimeout(300); await bm.evaluate(() => { const d=document.querySelector('details[data-det="timoff"]'); if(d) d.open=true; });
+  await bm.click('[data-act="udelAsk"][data-id="yoga"]'); await bm.waitForTimeout(200);
+  await bm.screenshot({ path: SHOT + '/10-hapus.png', fullPage: true });
+  await bm.click('[data-act="udelGo"][data-id="yoga"]'); await bm.waitForTimeout(900);
+  ok(r8.hd > 0 && r8.hy === 0, 'riwayat terdeteksi ' + JSON.stringify(r8));
+  ok(!DB.profiles.some(p => p.app_id === 'yoga') && DB.recs.get('users|yoga').deleted, 'pegawai tanpa riwayat terhapus (profil & daftar)');
   console.log('errors bm:', bm.errs.slice(0, 5)); console.log('errors md:', md.errs.slice(0, 5));
   await browser.close();
 })().catch(e => { console.error(e); process.exit(1); });
