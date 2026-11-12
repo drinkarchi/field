@@ -96,6 +96,7 @@ const click = async (p, sel) => { await p.click(sel); await p.waitForTimeout(250
   ok(recs.filter(r => r.coll === 'outlets').length === 17, 'seed 17 outlet nyata (outlets=' + recs.filter(r => r.coll === 'outlets').length + ')');
   ok(recs.filter(r => r.coll === 'visits').length === 0, 'tanpa kunjungan demo');
   ok(!(await bm.innerText('body')).includes('Demo —'), 'tidak ada outlet demo di layar');
+  await bm.waitForSelector('text=Tersinkron',{timeout:15000}).catch(()=>{});
   ok(await bm.isVisible('text=Tersinkron'), 'status Tersinkron tampil');
   await bm.screenshot({ path: SHOT + '/1-bm-home.png' });
   // Tim -> buat akun Dimas
@@ -176,6 +177,13 @@ const click = async (p, sel) => { await p.click(sel); await p.waitForTimeout(250
   await bm.click('[data-act="udelGo"][data-id="yoga"]'); await bm.waitForTimeout(900);
   ok(r8.hd > 0 && r8.hy === 0, 'riwayat terdeteksi ' + JSON.stringify(r8));
   ok(!DB.profiles.some(p => p.app_id === 'yoga') && DB.recs.get('users|yoga').deleted, 'pegawai tanpa riwayat terhapus (profil & daftar)');
+  // 9. Sesi hilang: perubahan TIDAK dibuang, minta login ulang, lalu terkirim
+  await bm.evaluate(c => window.__AF(c), "(function(){ localStorage.setItem('__tok_bak', localStorage.getItem('mock-tok')); localStorage.removeItem('mock-tok'); S.outlets[0].alamat='Tes sesi hilang'; save(); })()");
+  await bm.waitForTimeout(900);
+  const lost = await bm.evaluate(c => window.__AF(c), "({ob: OUTBOX.length, login: !!document.getElementById('lgForm')})");
+  ok(lost.ob >= 1 && lost.login, 'sesi hilang: perubahan tetap di antrean & diminta login ulang ' + JSON.stringify(lost));
+  await login(bm, 'nadia', '2468'); await bm.waitForTimeout(1500);
+  ok(JSON.stringify(DB.recs.get('outlets|o1').data).includes('Tes sesi hilang'), 'setelah login ulang, perubahan terkirim');
   console.log('errors bm:', bm.errs.slice(0, 5)); console.log('errors md:', md.errs.slice(0, 5));
   await browser.close();
 })().catch(e => { console.error(e); process.exit(1); });

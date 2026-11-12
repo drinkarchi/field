@@ -15,7 +15,9 @@
   window.supabase={createClient:function(){return {
     auth:{getSession:function(){var t=localStorage.getItem('mock-tok');return Promise.resolve({data:{session:t?{user:{id:t}}:null}})},
       signInWithPassword:function(c){return window.__db('login',c).then(function(x){x=JSON.parse(x);if(x.error)return {error:x.error};localStorage.setItem('mock-tok',x.uid);return {data:{session:{user:{id:x.uid}}}}})},
-      signOut:function(){localStorage.removeItem('mock-tok');return Promise.resolve({})},
+      onAuthStateChange:function(f){window.__authcb=f;return {data:{subscription:{unsubscribe:function(){}}}}},
+      refreshSession:function(){var t=localStorage.getItem('mock-tok');return Promise.resolve({data:{session:t?{user:{id:t}}:null}})},
+      signOut:function(){if(window.__authcb)setTimeout(function(){window.__authcb('SIGNED_OUT',null)},0);localStorage.removeItem('mock-tok');return Promise.resolve({})},
       updateUser:function(){return Promise.resolve({data:{}})},
       setSession:function(s){localStorage.setItem('mock-tok',s.access_token);return Promise.resolve({data:{session:{user:{id:s.access_token}}}})}},
     from:function(t){return new Q(t)},

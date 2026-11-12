@@ -2215,15 +2215,22 @@ function diffSync(){if(!LIVE_ON)return;var cur=toRecords(S);var mgr=isMgrRole(PR
   Object.keys(SYNCED).forEach(function(k){if(k in cur)return;var c=splitKey(k)[0];if(!mgr&&FIELD_COLLS.indexOf(c)<0)return;ops.push({k:k,data:null,deleted:true});delete SYNCED[k]});
   if(ops.length)queue(ops);if(users&&mgr)syncProfiles()}
 function scheduleSync(){if(!LIVE_ON)return;clearTimeout(SYNC_T);SYNC_T=setTimeout(diffSync,250)}
-function isNetErr(res){return !res||!res.status||res.status>=500||res.status===408||res.status===429}
+function isNetErr(res){return !res||!res.status||res.status>=500||res.status===408||res.status===429||res.status===401}
+var SESS_LOST=false;
+function hasSession(){return sb.auth.getSession().then(function(r){return !!(r&&r.data&&r.data.session)},function(){return false})}
+function sessionLost(){if(SESS_LOST||!LIVE_ON)return;SESS_LOST=true;try{persistMeta()}catch(e){}LIVE_ON=false;loginView('Sesi login berakhir. Silakan masuk lagi — perubahan yang belum terkirim tetap tersimpan di HP ini dan akan dikirim setelah masuk.')}
+function ensureSession(){return hasSession().then(function(ok){if(ok)return true;return sb.auth.refreshSession().then(function(r){return !!(r&&r.data&&r.data.session)},function(){return false})})}
 function flush(){if(FLUSHING||!OUTBOX.length||!sb)return;if(navigator.onLine===false){liveBarSync();return}FLUSHING=true;
+  ensureSession().then(function(ok){if(!ok){FLUSHING=false;if(navigator.onLine!==false)sessionLost();return}flush2()})}
+function flush2(){
   var batch=OUTBOX.slice(0,150);var rows=batch.map(function(o){var p=splitKey(o.k);return {coll:p[0],id:p[1],data:o.data,deleted:!!o.deleted}});
   sb.from('app_records').upsert(rows,{onConflict:'coll,id'}).then(function(res){
     if(!res.error){done(batch);return}
+    if(res.status===401){FLUSHING=false;ensureSession().then(function(ok){if(!ok)sessionLost();else setTimeout(flush,1500)});return}
     if(isNetErr(res)){FLUSHING=false;NET.err='offline';liveBarSync();return}
     /* Ada baris yang ditolak: kirim satu per satu, buang yang ditolak izin */
-    var i=0,bad=[];(function next(){if(i>=batch.length){done(batch,bad);return}var o=batch[i++],r=rows[i-1];
-      sb.from('app_records').upsert([r],{onConflict:'coll,id'}).then(function(rs){if(rs.error&&!isNetErr(rs)){bad.push(o.k);console.warn('Ditolak server',o.k,rs.error.message)}next()},function(){next()})})();
+    var i=0,bad=[],keep=[];(function next(){if(i>=batch.length){done(batch.filter(function(o){return keep.indexOf(o.k)<0}),bad);return}var o=batch[i++],r=rows[i-1];
+      sb.from('app_records').upsert([r],{onConflict:'coll,id'}).then(function(rs){if(rs.error&&!isNetErr(rs)){bad.push(o.k);console.warn('Ditolak server',o.k,rs.status,rs.error.message)}else if(rs.error)keep.push(o.k);next()},function(){keep.push(o.k);next()})})();
   },function(){FLUSHING=false;NET.err='offline';liveBarSync()});
   function done(b,bad){FLUSHING=false;NET.err=null;var ks={};b.forEach(function(o){ks[o.k]=o});OUTBOX=OUTBOX.filter(function(o){return ks[o.k]!==o});obSave();
     if(bad&&bad.length)flash(bad.length+' perubahan ditolak server (tidak punya izin)');liveBarSync();if(OUTBOX.length)setTimeout(flush,50)}}
@@ -2335,14 +2342,14 @@ function loginView(msg,mode){S=null;var em=mode==='email';document.getElementByI
     var un=document.getElementById('lgUser').value.trim().toLowerCase(),pin=pinEl.value;if(!un||!pinOk(pin)){loginView('Isi username dan PIN 4 digit.');document.getElementById('lgUser').value=un;return}
     btn.disabled=true;btn.textContent='Memeriksa…';
     sb.functions.invoke('masuk',{body:{username:un,pin:pin}}).then(function(r){fnErr(r).then(function(err){
-      if(err||!r.data||!r.data.access_token){loginView(err||(navigator.onLine===false?'Tidak ada internet. Login pertama butuh koneksi.':'Gagal masuk, coba lagi.'));var u2=document.getElementById('lgUser');if(u2)u2.value=un;return}
+      if(err&&/Failed to send|Failed to fetch|NetworkError|Load failed/i.test(err))err='Tidak bisa terhubung ke server. Periksa koneksi internet lalu coba lagi.';if(err||!r.data||!r.data.access_token){loginView(err||(navigator.onLine===false?'Tidak ada internet. Login pertama butuh koneksi.':'Gagal masuk, coba lagi.'));var u2=document.getElementById('lgUser');if(u2)u2.value=un;return}
       sb.auth.setSession({access_token:r.data.access_token,refresh_token:r.data.refresh_token}).then(function(s){if(s.error||!s.data.session){loginView('Gagal membuat sesi: '+(s.error&&s.error.message||''));return}startSession(s.data.session)})})},function(){loginView('Tidak ada internet. Login pertama butuh koneksi.')})})}
 function splash(t){document.getElementById('app').innerHTML='<main class="gut" style="max-width:440px;margin:0 auto;padding-top:30vh;text-align:center"><img src="'+LOGO_FULL+'" alt="Archi" style="height:42px;width:auto"><p class="small muted" style="margin-top:16px">'+esc(t||'Memuat…')+'</p></main>'}
 
 function bootState(st,meId){S=st;S.me=meId;if(!S.users.some(function(u){return u.id===meId}))S.users.push({id:meId,nama:PROF.nama,role:PROF.role});
   TODAY=wibToday();MONTH=monthDays(ym(TODAY));recalcDays();try{migrate()}catch(e){console.warn('migrate',e)}try{syncSkus();recalcDays()}catch(e){}freezePast();UI=freshUI();UI.sf=mkMap(0);UI.sf.sampling=0;UI.sf.pengunjung=0;UI.sf.feedback=[];UI.sf.catatan='';
   LIVE_ON=true;save();render()}
-function startSession(session){if(!session){loginView();return}AUTH_UID=session.user.id;splash('Menyiapkan data…');
+function startSession(session){if(!session){loginView();return}SESS_LOST=false;AUTH_UID=session.user.id;splash('Menyiapkan data…');
   OUTBOX=lsGet(obKey())||[];NET.pending=OUTBOX.length;
   sb.from('profiles').select('*').eq('user_id',AUTH_UID).maybeSingle().then(function(pr){
     if(pr.error&&navigator.onLine===false){var c=lsGet(cacheKey()),pp=lsGet('archi-prof-'+AUTH_UID);if(c&&pp){PROF=pp;SYNCED=lsGet('archi-synced-'+AUTH_UID)||{};LAST_PULL=lsGet('archi-lp-'+AUTH_UID);bootState(c,pp.app_id);NET.err='offline';liveBarSync();return}loginView('Tidak ada internet.');return}
@@ -2351,14 +2358,20 @@ function startSession(session){if(!session){loginView();return}AUTH_UID=session.
     PROF=pr.data;lsSet('archi-prof-'+AUTH_UID,PROF);
     syncClock().then(function(){return fetchAll()}).then(function(rows){
       if(!rows.length){if(!isMgrRole(PROF.role)){loginView('Data belum disiapkan. Minta Pemilik/BM masuk lebih dulu.');sb.auth.signOut();return}
-        SYNCED={};var st=cleanSeed();LAST_PULL=new Date(nowMs()-60000).toISOString();bootState(st,PROF.app_id);flash('Data awal disiapkan');syncProfiles();afterBoot();return}
+        seedOnce();return}
       SYNCED={};LAST_PULL=null;rows.forEach(function(r){if(!LAST_PULL||r.updated_at>LAST_PULL)LAST_PULL=r.updated_at;if(!r.deleted)SYNCED[r.coll+'|'+r.id]=JSON.stringify(r.data)});
       var st=fromRecords(rows);
       /* gabungkan perubahan lokal yang belum terkirim */
       OUTBOX.forEach(function(o){var p=splitKey(o.k);var c=p[0],id=p[1];if(c==='config'){if(!o.deleted)st[id]=o.data;return}if(ARR_COLLS[c]||Array.isArray(st[c])){st[c]=st[c]||[];var i=st[c].findIndex(function(x){return itemKey(c,x)===id});if(o.deleted){if(i>=0)st[c].splice(i,1)}else if(i>=0)st[c][i]=o.data;else st[c].push(o.data)}else{st[c]=st[c]||{};if(o.deleted)delete st[c][id];else st[c][id]=o.data}SYNCED[o.k]=o.deleted?undefined:JSON.stringify(o.data);if(o.deleted)delete SYNCED[o.k]});
       bootState(st,PROF.app_id);afterBoot()}).catch(function(e){console.error(e);var c=lsGet(cacheKey());if(c){SYNCED=lsGet('archi-synced-'+AUTH_UID)||{};LAST_PULL=lsGet('archi-lp-'+AUTH_UID);bootState(c,PROF.app_id);NET.err='offline';afterBoot()}else loginView('Gagal memuat data. Periksa koneksi lalu coba lagi.')})})}
+function seedOnce(){/* hanya isi data awal bila server benar-benar kosong; tidak pernah menimpa data yang sudah ada */
+  hasSession().then(function(ok){if(!ok){loginView('Sesi tidak valid, silakan masuk lagi.');return}
+    sb.from('app_records').select('coll,id').eq('coll','config').eq('id','v').then(function(chk){if(chk.error||(chk.data&&chk.data.length)){location.reload();return}
+      splash('Menyiapkan data awal…');var seedSt=cleanSeed();var recs=toRecords(seedSt);var rows=Object.keys(recs).map(function(k){var p=splitKey(k);return {coll:p[0],id:p[1],data:recs[k],deleted:false}});
+      var i=0;(function next(){if(i>=rows.length){var done1=function(){location.reload()};sb.from('profiles').upsert(seedSt.users.map(function(u){return {app_id:u.id,nama:u.nama,role:u.role,aktif:u.aktif!==false}}),{onConflict:'app_id',ignoreDuplicates:true}).then(done1,done1);return}var part=rows.slice(i,i+200);i+=200;
+        sb.from('app_records').upsert(part,{onConflict:'coll,id',ignoreDuplicates:true}).then(function(r){if(r.error){loginView('Gagal menyiapkan data awal: '+r.error.message);return}next()})})()})})}
 function fetchAll(){var all=[],from=0,N=1000;return new Promise(function(res,rej){(function page(){sb.from('app_records').select('*').order('coll').order('id').range(from,from+N-1).then(function(r){if(r.error){rej(r.error);return}all=all.concat(r.data||[]);if((r.data||[]).length===N){from+=N;page()}else res(all)},rej)})()})}
-function afterBoot(){flush();uploadPhotos();startRealtime();loadProfiles();
+function afterBoot(){if(window.__afterBooted){flush();uploadPhotos();pull();return}window.__afterBooted=1;flush();uploadPhotos();startRealtime();loadProfiles();
   setInterval(function(){if(document.visibilityState==='visible'){pull();flush();uploadPhotos();persistMeta()}},60000);
   window.addEventListener('online',function(){NET.err=null;flush();uploadPhotos();pull();liveBarSync()});window.addEventListener('offline',function(){liveBarSync()});
   document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible'){syncClock().then(function(){if(wibToday()!==TODAY&&!UI.wiz&&!UI.form){location.reload();return}pull();flush();uploadPhotos()})}else persistMeta()})}
@@ -2366,6 +2379,7 @@ function persistMeta(){if(!AUTH_UID||!S)return;lsSet(cacheKey(),S);lsSet('archi-
 function liveStart(){DL=DL_SHIM;if(!window.supabase||!window.supabase.createClient){document.getElementById('app').innerHTML='<p style="padding:24px">Gagal memuat pustaka. Periksa koneksi lalu muat ulang.</p>';return}
   sb=window.supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true,storageKey:'archi-auth'}});splash();
   sb.auth.getSession().then(function(r){var s=r.data&&r.data.session;if(s)startSession(s);else loginView()},function(){loginView()});
+  sb.auth.onAuthStateChange(function(ev){if(ev==='SIGNED_OUT')sessionLost()});
   if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(function(){})}
 /* --- Tanda tangan PIC (kanvas) --- */
 function sigPad(){var f=UI.form;if(!f)return;var ov=document.createElement('div');ov.style.cssText='position:fixed;inset:0;z-index:60;background:rgba(16,32,48,.55);display:flex;align-items:center;justify-content:center;padding:16px';
