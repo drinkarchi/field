@@ -9,14 +9,14 @@ const JPG = fs.readFileSync(path.join(__dirname, 'shelf.jpg'));
 // ---- DB bersama (Node) ----
 const DB = { profiles: [
   { app_id: 'ray', nama: 'Ray', role: 'approver', aktif: true, user_id: 'u-ray', email: 'ray@x.test' },
-  { app_id: 'nadia', nama: 'Nadia', role: 'bm', aktif: true, user_id: 'u-nadia', email: 'nadia@x.test' },
+  { app_id: 'nadia', nama: 'Nadia', role: 'bm', aktif: true, user_id: 'u-nadia', email: 'nadia@x.test', username: 'nadia' },
   { app_id: 'wulan', nama: 'Wulan', role: 'admin', aktif: true, user_id: null },
   { app_id: 'dimas', nama: 'Dimas', role: 'md', aktif: true, user_id: null },
   { app_id: 'bagas', nama: 'Bagas', role: 'md', aktif: true, user_id: null },
   { app_id: 'yoga', nama: 'Yoga', role: 'md', aktif: true, user_id: null },
   { app_id: 'sari', nama: 'Sari', role: 'spg', aktif: true, user_id: null },
   { app_id: 'rina', nama: 'Rina', role: 'spg', aktif: true, user_id: null }],
-  recs: new Map(), accounts: { 'nadia@x.test': { pw: 'rahasia123', uid: 'u-nadia' }, 'ray@x.test': { pw: 'rahasia123', uid: 'u-ray' } }, uploads: [] };
+  recs: new Map(), pins: { nadia: { pin: '2468' } }, accounts: { 'nadia@x.test': { pw: 'rahasia123', uid: 'u-nadia' }, 'ray@x.test': { pw: 'rahasia123', uid: 'u-ray' } }, uploads: [] };
 const FIELD = ['visits','spgDays','tickets','tasks','lokReq','proposals','excuses','counts','returns','deliveries','invoices','tagihan','spgReported','log','seen','snap','audits'];
 let OFFLINE = new Set(); const pages = [];
 const role = uid => { const p = DB.profiles.find(x => x.user_id === uid && x.aktif); return p ? p.role : null; };
@@ -26,9 +26,15 @@ async function dbHandler(page, op, a) {
   if (OFFLINE.has(page)) return JSON.stringify({ error: { message: 'Failed to fetch' }, status: 0 });
   if (op === 'login') { const ac = DB.accounts[a.email]; if (!ac || ac.pw !== a.password) return JSON.stringify({ error: { message: 'Invalid login credentials' } }); return JSON.stringify({ uid: ac.uid }); }
   if (op === 'upload') { if (!role(a.tok) || !a.p.startsWith(a.tok + '/')) return JSON.stringify({ error: { message: 'denied' } }); DB.uploads.push(a.p); return JSON.stringify({ data: { path: a.p } }); }
+  if (op === 'fn' && a.n === 'masuk') { const p = DB.profiles.find(x => x.username === a.body.username && x.user_id); const pin = p && DB.pins[p.app_id];
+    if (!p || !pin) return JSON.stringify({ data: null, error: { message: 'Username atau PIN salah' } });
+    if (pin.lock) return JSON.stringify({ data: { error: 'Akun dikunci' }, error: { message: 'Akun dikunci' } });
+    if (pin.pin !== a.body.pin) { pin.fail = (pin.fail || 0) + 1; if (pin.fail >= 5) pin.lock = true; return JSON.stringify({ data: { error: 'Username atau PIN salah' }, error: { message: 'Username atau PIN salah' } }); }
+    pin.fail = 0; return JSON.stringify({ data: { access_token: p.user_id, refresh_token: 'r' } }); }
+  if (op === 'fn' && a.body.action === 'self') { const p = DB.profiles.find(x => x.user_id === a.tok); if (a.body.username && !p.username) p.username = a.body.username; DB.pins[p.app_id] = { pin: a.body.pin }; return JSON.stringify({ data: { ok: true, username: p.username } }); }
   if (op === 'fn') { const r = role(a.tok); if (!mgr(r)) return JSON.stringify({ error: { message: 'x' }, data: { error: 'Hanya Pemilik/BM/Admin' } });
     const p = DB.profiles.find(x => x.app_id === a.body.app_id); if (!p) return JSON.stringify({ data: { error: 'nf' }, error: { message: 'nf' } });
-    if (a.body.action === 'create') { const uid = 'u-' + p.app_id; DB.accounts[a.body.email] = { pw: a.body.password, uid }; p.user_id = uid; p.email = a.body.email; }
+    if (a.body.action === 'create') { p.user_id = 'u-' + p.app_id; } p.username = a.body.username; DB.pins[p.app_id] = { pin: a.body.pin };
     return JSON.stringify({ data: { ok: true } }); }
   const r = role(a.tok);
   if (a.t === 'profiles') {
@@ -73,7 +79,7 @@ async function newPage(browser, opts) {
   return page;
 }
 const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) process.exitCode = 1; };
-async function login(p, e, pw) { await p.fill('#lgEmail', e); await p.fill('#lgPw', pw); await p.click('#lgForm button'); await p.waitForTimeout(900); }
+async function login(p, e, pw) { await p.fill('#lgUser', e); await p.fill('#lgPin', pw); await p.click('#lgForm button'); await p.waitForTimeout(900); }
 const click = async (p, sel) => { await p.click(sel); await p.waitForTimeout(250); };
 
 (async () => {
@@ -81,9 +87,9 @@ const click = async (p, sel) => { await p.click(sel); await p.waitForTimeout(250
   // 1. BM masuk pertama kali -> data awal
   const bm = await newPage(browser, { viewport: { width: 1280, height: 900 } });
   await bm.waitForSelector('#lgForm');
-  await login(bm, 'nadia@x.test', 'salah');
-  ok(await bm.isVisible('text=Email atau password salah'), 'login salah ditolak');
-  await login(bm, 'nadia@x.test', 'rahasia123');
+  await login(bm, 'nadia', '1357');
+  ok(await bm.isVisible('text=Username atau PIN salah'), 'PIN salah ditolak');
+  await login(bm, 'nadia', '2468');
   await bm.waitForTimeout(1200);
   const recs = [...DB.recs.values()];
   ok(recs.filter(r => r.coll === 'outlets').length === 17, 'seed 17 outlet nyata (outlets=' + recs.filter(r => r.coll === 'outlets').length + ')');
@@ -98,15 +104,16 @@ const click = async (p, sel) => { await p.click(sel); await p.waitForTimeout(250
   await bm.waitForTimeout(300);
   ok(await bm.isVisible('text=Akun login'), 'kartu Akun login tampil di Tim');
   await click(bm, '[data-act="laccOpen"][data-id="dimas"]');
-  await bm.fill('#lacc-email', 'dimas@x.test'); await bm.fill('#lacc-pw', 'awal12345');
+  await bm.fill('#lacc-un', 'dimas'); await bm.fill('#lacc-pin', '58139');
   await click(bm, '[data-act="laccGo"]'); await bm.waitForTimeout(600);
-  ok(DB.profiles.find(p => p.app_id === 'dimas').user_id === 'u-dimas', 'akun Dimas dibuat lewat aplikasi');
+  ok(DB.profiles.find(p => p.app_id === 'dimas').user_id === 'u-dimas' && DB.pins.dimas.pin === '5813', 'akun Dimas dibuat (username+PIN 4 digit, input dipotong 4)');
   await bm.screenshot({ path: SHOT + '/2-bm-tim.png', fullPage: true });
 
   // 2. MD di HP
   const md = await newPage(browser, { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   await md.waitForSelector('#lgForm'); await md.screenshot({ path: SHOT + '/3-login-hp.png' });
-  await login(md, 'dimas@x.test', 'awal12345'); await md.waitForTimeout(800);
+  await md.click('#lgMode'); ok(await md.isVisible('#lgEmail'), 'opsi email (Pemilik) tersedia'); await md.click('#lgMode');
+  await login(md, 'dimas', '5813'); await md.waitForTimeout(800);
   ok(await md.isVisible('text=Halo') || (await md.content()).includes('Dimas'), 'MD masuk');
   await md.screenshot({ path: SHOT + '/4-md-home.png' });
   // mulai cek toko FoodHall Plaza Indonesia (o3, koordinat -6.19080,106.82200)
@@ -149,9 +156,9 @@ const click = async (p, sel) => { await p.click(sel); await p.waitForTimeout(250
   await md.reload(); await md.waitForTimeout(1500);
   ok(await md.evaluate(c => window.__AF(c), "S && S.visits.length === 1 && S.me === 'dimas'"), 'reload: sesi & data tetap');
   // 7. SPG absen selfie + GPS
-  DB.accounts['sari@x.test']={pw:'awal12345',uid:'u-sari'};DB.profiles.find(p=>p.app_id==='sari').user_id='u-sari';
+  DB.profiles.find(p=>p.app_id==='sari').user_id='u-sari';DB.profiles.find(p=>p.app_id==='sari').username='sari';DB.pins.sari={pin:'7531'};
   const spg = await newPage(browser, { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, geolocation: { latitude: -6.19525, longitude: 106.81885, accuracy: 15 } });
-  await spg.waitForSelector('#lgForm'); await login(spg, 'sari@x.test', 'awal12345'); await spg.waitForTimeout(800);
+  await spg.waitForSelector('#lgForm'); await login(spg, 'sari', '7531'); await spg.waitForTimeout(800);
   await spg.click('[data-act="absenMasuk"]'); await spg.waitForTimeout(1500);
   const sd=[...DB.recs.values()].find(r=>r.coll==='spgDays');
   ok(!!sd && sd.data.gps!=null && sd.data.gps<50 && sd.data.photoFiles && sd.data.photoFiles.selfie, 'SPG absen selfie+GPS '+(sd&&JSON.stringify({gps:sd.data.gps,masuk:sd.data.masuk})));

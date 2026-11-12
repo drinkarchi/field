@@ -127,3 +127,15 @@ create policy "foto diperbarui di folder sendiri" on storage.objects
   for update to authenticated
   using (bucket_id = 'photos' and (storage.foldername(name))[1] = auth.uid()::text)
   with check (bucket_id = 'photos' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- Login username + PIN 4 digit (Edge Function "masuk" & "kelola-akun")
+alter table public.profiles add column username text unique check (username ~ '^[a-z0-9._]{3,20}$');
+create table public.akun_pin (
+  app_id text primary key references public.profiles(app_id) on delete cascade,
+  pin_hash text not null,           -- SHA-256(pepper server | app_id | pin)
+  fail int not null default 0,      -- salah berturut-turut; 5x -> kunci 15 menit
+  locked_until timestamptz,
+  updated_at timestamptz not null default now()
+);
+alter table public.akun_pin enable row level security;   -- tanpa policy: hanya service role
+revoke all on public.akun_pin from anon, authenticated;

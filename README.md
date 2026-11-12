@@ -14,13 +14,16 @@ Archi Field adalah aplikasi lapangan untuk MD dan SPG Archi, dengan dashboard un
 
 Saat pertama dipakai, izinkan **Lokasi** dan **Kamera**. Keduanya wajib untuk cek toko dan absen.
 
-## Akun
+## Akun (username + PIN 4 digit)
 
-1. **Pemilik (akun pertama).** Buat sendiri di Supabase → Authentication → Users → *Add user* → *Create new user*, centang *Auto Confirm User*. Akun pertama otomatis menjadi Pemilik.
-2. **Anggota lain.** Pemilik, BM, atau Admin membuatnya dari aplikasi: **Pengaturan → Tim → Akun login → Buat akun**, isi email dan password sementara.
-3. **Ganti password.** Setelah masuk, staf mengganti password sendiri di menu **Akun**.
+1. **Pemilik.** Akun awal dibuat lewat Supabase (email + password). Setelah masuk, buka menu **Akun → Atur username & PIN**. Login berikutnya cukup dengan username dan PIN. Opsi "Masuk dengan email (khusus Pemilik)" tetap tersedia sebagai cadangan.
+2. **Anggota lain.** Pemilik, BM, atau Admin membuatnya dari **Pengaturan → Tim → Akun login → Buat akun**, isi username dan PIN awal.
+3. **Ganti PIN.** Staf mengganti PIN sendiri di menu **Akun**. Lupa PIN: BM menekan **Reset PIN**.
 
-Peran (MD/SPG/BM/Admin/Pemilik) mengikuti data di menu Tim.
+Keamanan PIN:
+- PIN disimpan sebagai hash di server, dengan *pepper* rahasia yang hanya ada di server.
+- Salah 5x membuat akun terkunci 15 menit.
+- PIN yang terlalu mudah (0000, 1234, dan sejenisnya) ditolak.
 
 ## Cara kerja
 
