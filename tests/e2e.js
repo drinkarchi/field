@@ -184,6 +184,10 @@ const click = async (p, sel) => { await p.click(sel); await p.waitForTimeout(250
   ok(lost.ob >= 1 && lost.login, 'sesi hilang: perubahan tetap di antrean & diminta login ulang ' + JSON.stringify(lost));
   await login(bm, 'nadia', '2468'); await bm.waitForTimeout(1500);
   ok(JSON.stringify(DB.recs.get('outlets|o1').data).includes('Tes sesi hilang'), 'setelah login ulang, perubahan terkirim');
+  // 10. Sabtu tentatif
+  const sat = await bm.evaluate(c => window.__AF(c), "(function(){ var s=addDays(TODAY,1); while(dowOf(s)!==6) s=addDays(s,1); var u=user('dimas'); var a=mdDay(u,s).status; var nx=nextWorkday(addDays(s,-1)); S.plans['dimas|'+s]={outlets:['o1','o2'],ovr:true,by:'BM'}; var b=isWorkFor('dimas',s); var t=targetOf(u,s); var c2=isWorkFor('bagas',s); var chips=planDates(7).some(isSat); delete S.plans['dimas|'+s]; return {sat:s,tanpaRute:a,nextWork:dowOf(nx),denganRute:b,target:t,lain:c2,chip:chips}; })()");
+  ok(sat.tanpaRute==='nanti'||sat.tanpaRute==='libur', 'Sabtu tanpa rute bukan hari kerja '+JSON.stringify(sat));
+  ok(sat.nextWork===1 && sat.denganRute && sat.target===2 && !sat.lain && sat.chip, 'Sabtu dengan rute khusus = masuk kerja (hanya orang itu); Senin = hari kerja berikutnya');
   console.log('errors bm:', bm.errs.slice(0, 5)); console.log('errors md:', md.errs.slice(0, 5));
   await browser.close();
 })().catch(e => { console.error(e); process.exit(1); });
