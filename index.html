@@ -14,7 +14,7 @@
 <title>Archi Field</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@500;600;700&display=swap">
 <style>
 /* Layout: field staff get a single phone column with a floating navy nav; managers get a navy sidebar + pastel workspace. Light pastel theme only (brand decision). */
 :root{
@@ -140,6 +140,127 @@ td{padding:10px 8px;border-top:1px solid var(--line);vertical-align:middle;font-
 .note{background:var(--butter);color:var(--butter-fg);border-radius:14px;padding:10px 14px;font-size:13px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 .nbadge{margin-left:auto;background:#C0392B;color:#fff;border-radius:999px;font-size:11px;font-weight:700;padding:1px 7px;line-height:18px}.linkbtn{border:0;background:none;padding:0;color:var(--navy);font-weight:600;text-decoration:underline;cursor:pointer;font:inherit}</style>
+<style id="ds2">
+/* ===== Archi Field Design System v2 · Premium editorial, clean minimalist =====
+   Lapisan tampilan saja: warna brand (navy, hijau Archi, pastel status) dipertahankan; fungsi, data, dan alur tidak berubah. */
+:root{
+  --bg:#F4F8F3; --surface:#FFFFFF; --ink:#16233F; --muted:#5D6779; --line:#E7EAE4; --chip-line:#DCE1DA; --chip-bg:#F1F3EF;
+  --subtle:#FAFBF9; --green-hover:#264A09; --navy-hover:#14213C;
+  --sh-1:0 1px 2px rgba(22,35,63,.04),0 1px 3px rgba(22,35,63,.04);
+  --sh-2:0 4px 16px rgba(22,35,63,.06),0 1px 3px rgba(22,35,63,.05);
+  --r-lg:16px; --r-md:12px; --r-sm:8px;
+  --display:'Inter Tight','Inter',system-ui,-apple-system,'Segoe UI',sans-serif; --body:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+body{font-size:14.5px;line-height:1.5;font-feature-settings:"cv11","ss01";-webkit-font-smoothing:antialiased;letter-spacing:-0.003em}
+h1,h2,h3{font-weight:600;letter-spacing:-0.022em}
+h1{font-size:26px;line-height:1.2} h2{font-size:16.5px;line-height:1.3} h3{font-size:15px}
+.small{font-size:12.5px} .muted{color:var(--muted)}
+:focus-visible{outline:2px solid var(--leaf-dark);outline-offset:2px}
+
+/* Top bar & navigasi */
+.topbar{background:rgba(255,255,255,.96);border-bottom:1px solid var(--line)}
+.tb-in{padding-block:8px;min-height:56px}
+.topbar .pill{font-weight:500}
+@media (min-width:901px){body:has(.mgr) .topbar .brand{visibility:hidden}}
+.mgr{min-height:calc(100vh - 57px)}
+.side{flex:0 0 236px;padding:18px 12px;gap:18px;position:sticky;top:57px;align-self:flex-start;min-height:calc(100vh - 57px)}
+.side-logo{padding:2px 10px 10px}
+.side nav{gap:2px}
+.side nav button{padding:9px 12px;border-radius:var(--r-sm);font-weight:500;font-size:13.5px;gap:11px;color:#C3CEE3;position:relative;transition:background .12s,color .12s}
+.side nav button:hover{background:rgba(255,255,255,.06);color:#fff}
+.side nav button.on{background:rgba(255,255,255,.09);color:#fff;font-weight:600}
+.side nav button.on::before{content:"";position:absolute;left:-12px;top:8px;bottom:8px;width:3px;border-radius:0 3px 3px 0;background:var(--leaf)}
+.side nav button svg{opacity:.85}
+.side .me{border-radius:var(--r-md);background:rgba(255,255,255,.06)}
+@media (max-width:900px){.side{position:static;min-height:0;flex:1 1 100%;padding:10px 12px}.side nav button.on::before{display:none}}
+.main{padding-block:28px 56px;gap:20px;max-width:1320px}
+
+.bnav{width:min(460px,calc(100% - 24px));bottom:calc(12px + env(safe-area-inset-bottom,0px));border-radius:20px;padding:6px;gap:4px;box-shadow:0 10px 30px rgba(22,35,63,.24),0 2px 6px rgba(22,35,63,.12)}
+.bnav button{height:54px;border-radius:14px;flex-direction:column;gap:3px;font-size:11px;font-weight:500;letter-spacing:.01em;color:#AFBDD8;transition:background .12s,color .12s}
+.bnav button.on{background:rgba(143,208,107,.16);color:#fff;font-weight:600}
+.bnav button.on svg{color:var(--leaf)}
+
+/* Kartu & permukaan */
+.card{border-radius:var(--r-lg);border:1px solid var(--line);box-shadow:var(--sh-1);padding:18px;gap:12px}
+.card.flat{box-shadow:none}
+.hero{border-radius:var(--r-lg);padding:20px 22px;box-shadow:var(--sh-2)}
+.hero .lbl{font-size:11px;font-weight:600;letter-spacing:.08em}
+.hero .big{font-size:30px;font-weight:600;letter-spacing:-0.03em}
+.ring span{font-weight:600}
+.field{gap:14px;padding-block:20px 128px}
+
+/* Tile KPI: warna pastel lama dipertahankan, tipografi baru */
+.stat{border-radius:var(--r-lg);gap:6px!important}
+.stat>span:first-child,.stat>span:first-child b{font-size:13px!important;font-weight:600!important}
+.stat>b{font-family:var(--display);font-size:30px!important;font-weight:600;letter-spacing:-0.03em;line-height:1.15}
+button.stat{cursor:pointer;transition:filter .15s} button.stat:hover{filter:brightness(.98)}
+.grid4{gap:14px}
+
+/* Tombol */
+.btn{min-height:42px;padding:0 16px;border-radius:10px;font-weight:600;font-size:13.5px;letter-spacing:-0.005em;transition:background .12s,border-color .12s,box-shadow .12s}
+.btn.sm{min-height:34px;padding:0 12px;font-size:12.5px;border-radius:8px}
+.btn-green{box-shadow:0 1px 2px rgba(47,90,12,.25)} .btn-green:hover{background:var(--green-hover)}
+.btn-navy:hover{background:var(--navy-hover)}
+.btn-soft:hover{filter:brightness(.97)}
+.btn-line{border-color:var(--chip-line);box-shadow:var(--sh-1)} .btn-line:hover{background:var(--subtle);border-color:#C9D0C6}
+.btn-danger:hover{background:var(--rose)}
+.btn:disabled{background:var(--chip-bg);border-color:var(--chip-line);color:#98A1AE;box-shadow:none}
+.linkbtn{text-decoration:none;color:var(--green);font-weight:600} .linkbtn:hover{text-decoration:underline}
+
+/* Pilihan (chip) */
+.chips{gap:6px}
+.chip{min-height:40px;padding:7px 14px;border-radius:10px;font-weight:500;font-size:13.5px;border-color:var(--chip-line);transition:background .12s,border-color .12s}
+.chip:hover{border-color:#C3CBBF;background:var(--subtle)}
+.chip.on{font-weight:600;box-shadow:0 1px 2px rgba(47,90,12,.25)} .chip.on:hover{background:var(--green-hover)}
+.chip.sm{min-height:34px;padding:5px 11px;font-size:12.5px;border-radius:8px}
+
+/* Status badge */
+.pill{font-size:11.5px;font-weight:600;padding:3px 9px;border-radius:6px;letter-spacing:.005em}
+.nbadge{font-size:10.5px;padding:0 6px;line-height:17px}
+.note{border-radius:var(--r-md);background:#FDF7E8;border:1px solid #F1E2B8;font-size:13px;padding:11px 14px}
+
+/* Form */
+select,input.txt,input.numin,textarea.txt{border-color:var(--chip-line);transition:border-color .12s,box-shadow .12s;box-shadow:var(--sh-1)}
+select{height:40px;border-radius:10px;padding:0 10px}
+input.txt{height:42px;border-radius:10px;padding:0 12px} textarea.txt{border-radius:10px}
+input.numin{height:38px;border-radius:8px}
+select:focus,input.txt:focus,input.numin:focus,textarea.txt:focus{outline:none;border-color:var(--leaf-dark);box-shadow:0 0 0 3px rgba(63,138,42,.16)}
+label.fld{font-size:12.5px;font-weight:600;color:#3A465C;gap:6px}
+.steprow{border-radius:var(--r-md);background:var(--subtle);border:1px solid var(--line)}
+.stepper button{width:40px;height:40px;border-radius:10px;font-size:18px}
+.stepper .minus{background:var(--surface);border:1px solid var(--chip-line);color:var(--ink)}
+.stepper output{font-size:22px;font-weight:600}
+.segs{gap:4px} .segs i{height:4px;border-radius:2px;background:var(--line)}
+.wfoot{background:linear-gradient(180deg,rgba(246,247,244,0),var(--bg) 22%)}
+.camera{border-radius:var(--r-md);border:1.5px dashed #BFCBB8;background:var(--subtle)}
+.photo{border-radius:var(--r-md)}
+
+/* Daftar tugas */
+.task{border-radius:var(--r-md);box-shadow:var(--sh-1);padding:12px 14px}
+.task.cur{border-color:var(--leaf-dark);box-shadow:0 0 0 3px rgba(63,138,42,.10)}
+.mark{width:22px;height:22px;border-width:1.5px}
+.qrow{padding:11px 0}
+.lrow{padding:14px 2px}
+
+/* Tabel */
+.tbl{border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface)}
+table{font-size:13.5px}
+th{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;padding:10px 12px;background:var(--subtle);border-bottom:1px solid var(--line)}
+td{padding:11px 12px;border-top:1px solid var(--line)}
+tbody tr:first-child td{border-top:0}
+tr:hover td{background:var(--subtle)}
+.bar{height:6px;border-radius:3px;background:var(--line)} .bar i{border-radius:3px}
+
+/* Kalender & lain-lain */
+.cal{gap:4px} .cal .c{border-radius:var(--r-sm);border:1px solid var(--line);background:var(--surface)}
+.toast{border-radius:var(--r-md);font-weight:500;font-size:13.5px;box-shadow:0 12px 32px rgba(22,35,63,.28)}
+details summary{cursor:pointer}
+.avatar{background:var(--leaf);font-weight:600}
+
+/* HP: tile KPI dua kolom, judul lebih ringkas */
+@media (max-width:600px){.grid4{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.stat{padding:14px}.stat>b{font-size:24px!important}.stat>span:first-child,.stat>span:first-child b{font-size:12px!important}h1{font-size:23px}.main{padding-block:20px 48px}.card{padding:16px}}
+.card>span.small.muted{min-width:0}
+</style>
 </head>
 <body>
 <div id="app"></div>
@@ -1433,7 +1554,7 @@ function pendItems(me){
 }
 function pendCard(me){
   var it=pendItems(me);
-  if(!it.length)return '<div class="card" style="flex-direction:row;align-items:center;gap:10px">'+lvlPill('ok','Tidak ada yang menunggu keputusan')+'<span class="small muted">Usulan outlet, izin, lokasi toko, laporan janggal, verifikasi SPG, retur, dan tagihan akan muncul di sini.</span></div>';
+  if(!it.length)return '<div class="card" style="flex-direction:row;flex-wrap:wrap;align-items:center;gap:6px 10px">'+lvlPill('ok','Tidak ada yang menunggu keputusan')+'<span class="small muted">Usulan outlet, izin, lokasi toko, laporan janggal, verifikasi SPG, retur, dan tagihan akan muncul di sini.</span></div>';
   return '<section class="card" style="border:2px solid var(--leaf, #8FD06B)"><div class="row wrap" style="justify-content:space-between;gap:8px"><h2>Menunggu keputusan Anda</h2>'+lvlPill('warn',it.length+' item')+'</div>'+it.map(function(x,i){return '<div class="row wrap" style="gap:10px;align-items:center;border-top:'+(i?'1px solid var(--line)':'0')+';padding-top:'+(i?'12px':'0')+'"><span class="grow stack" style="gap:3px;min-width:220px"><span>'+lvlPill(x[0],x[1])+'</span><b style="font-size:14px">'+x[2]+'</b><span class="small muted">'+x[3]+'</span></span><span class="row wrap" style="gap:6px">'+x[4]+'</span></div>'}).join('')+'</section>';
 }
 
