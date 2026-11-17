@@ -144,7 +144,7 @@ td{padding:10px 8px;border-top:1px solid var(--line);vertical-align:middle;font-
 /* ===== Archi Field Design System v2 · Premium editorial, clean minimalist =====
    Lapisan tampilan saja: warna brand (navy, hijau Archi, pastel status) dipertahankan; fungsi, data, dan alur tidak berubah. */
 :root{
-  --bg:#F6F7F4; --surface:#FFFFFF; --ink:#16233F; --muted:#5D6779; --line:#E7EAE4; --chip-line:#DCE1DA; --chip-bg:#F1F3EF;
+  --bg:#F4F8F3; --surface:#FFFFFF; --ink:#16233F; --muted:#5D6779; --line:#E7EAE4; --chip-line:#DCE1DA; --chip-bg:#F1F3EF;
   --subtle:#FAFBF9; --green-hover:#264A09; --navy-hover:#14213C;
   --sh-1:0 1px 2px rgba(22,35,63,.04),0 1px 3px rgba(22,35,63,.04);
   --sh-2:0 4px 16px rgba(22,35,63,.06),0 1px 3px rgba(22,35,63,.05);
@@ -189,14 +189,11 @@ h1{font-size:26px;line-height:1.2} h2{font-size:16.5px;line-height:1.3} h3{font-
 .ring span{font-weight:600}
 .field{gap:14px;padding-block:20px 128px}
 
-/* Tile KPI: kartu putih, status pastel sebagai aksen */
-.stat{background:var(--surface)!important;color:var(--ink)!important;border:1px solid var(--line)!important;border-radius:var(--r-lg);box-shadow:var(--sh-1);padding:16px 18px 16px 20px;position:relative;overflow:hidden;gap:6px!important}
-.stat::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--chip-line)}
-.stat.ok::before{background:var(--leaf-dark)} .stat.warn::before{background:#D9A521} .stat.bad::before{background:#C0392B} .stat.info::before{background:var(--navy)}
-.stat>span:first-child,.stat>span:first-child b{font-size:12px!important;font-weight:600!important;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
-.stat>b{font-family:var(--display);font-size:28px!important;font-weight:600;letter-spacing:-0.03em;line-height:1.15;color:var(--ink)}
-.stat>span{font-size:12.5px;color:var(--muted)}
-button.stat{cursor:pointer;transition:box-shadow .15s,border-color .15s} button.stat:hover{box-shadow:var(--sh-2);border-color:var(--chip-line)!important}
+/* Tile KPI: warna pastel lama dipertahankan, tipografi baru */
+.stat{border-radius:var(--r-lg);gap:6px!important}
+.stat>span:first-child,.stat>span:first-child b{font-size:13px!important;font-weight:600!important}
+.stat>b{font-family:var(--display);font-size:30px!important;font-weight:600;letter-spacing:-0.03em;line-height:1.15}
+button.stat{cursor:pointer;transition:filter .15s} button.stat:hover{filter:brightness(.98)}
 .grid4{gap:14px}
 
 /* Tombol */
@@ -204,7 +201,7 @@ button.stat{cursor:pointer;transition:box-shadow .15s,border-color .15s} button.
 .btn.sm{min-height:34px;padding:0 12px;font-size:12.5px;border-radius:8px}
 .btn-green{box-shadow:0 1px 2px rgba(47,90,12,.25)} .btn-green:hover{background:var(--green-hover)}
 .btn-navy:hover{background:var(--navy-hover)}
-.btn-soft{background:var(--chip-bg);color:var(--ink);border-color:var(--chip-line)} .btn-soft:hover{background:#E8ECE5}
+.btn-soft:hover{filter:brightness(.97)}
 .btn-line{border-color:var(--chip-line);box-shadow:var(--sh-1)} .btn-line:hover{background:var(--subtle);border-color:#C9D0C6}
 .btn-danger:hover{background:var(--rose)}
 .btn:disabled{background:var(--chip-bg);border-color:var(--chip-line);color:#98A1AE;box-shadow:none}
