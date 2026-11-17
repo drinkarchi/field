@@ -256,6 +256,10 @@ tr:hover td{background:var(--subtle)}
 .toast{border-radius:var(--r-md);font-weight:500;font-size:13.5px;box-shadow:0 12px 32px rgba(22,35,63,.28)}
 details summary{cursor:pointer}
 .avatar{background:var(--leaf);font-weight:600}
+
+/* HP: tile KPI dua kolom, judul lebih ringkas */
+@media (max-width:600px){.grid4{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.stat{padding:14px}.stat>b{font-size:24px!important}.stat>span:first-child,.stat>span:first-child b{font-size:12px!important}h1{font-size:23px}.main{padding-block:20px 48px}.card{padding:16px}}
+.card>span.small.muted{min-width:0}
 </style>
 </head>
 <body>
@@ -1550,7 +1554,7 @@ function pendItems(me){
 }
 function pendCard(me){
   var it=pendItems(me);
-  if(!it.length)return '<div class="card" style="flex-direction:row;align-items:center;gap:10px">'+lvlPill('ok','Tidak ada yang menunggu keputusan')+'<span class="small muted">Usulan outlet, izin, lokasi toko, laporan janggal, verifikasi SPG, retur, dan tagihan akan muncul di sini.</span></div>';
+  if(!it.length)return '<div class="card" style="flex-direction:row;flex-wrap:wrap;align-items:center;gap:6px 10px">'+lvlPill('ok','Tidak ada yang menunggu keputusan')+'<span class="small muted">Usulan outlet, izin, lokasi toko, laporan janggal, verifikasi SPG, retur, dan tagihan akan muncul di sini.</span></div>';
   return '<section class="card" style="border:2px solid var(--leaf, #8FD06B)"><div class="row wrap" style="justify-content:space-between;gap:8px"><h2>Menunggu keputusan Anda</h2>'+lvlPill('warn',it.length+' item')+'</div>'+it.map(function(x,i){return '<div class="row wrap" style="gap:10px;align-items:center;border-top:'+(i?'1px solid var(--line)':'0')+';padding-top:'+(i?'12px':'0')+'"><span class="grow stack" style="gap:3px;min-width:220px"><span>'+lvlPill(x[0],x[1])+'</span><b style="font-size:14px">'+x[2]+'</b><span class="small muted">'+x[3]+'</span></span><span class="row wrap" style="gap:6px">'+x[4]+'</span></div>'}).join('')+'</section>';
 }
 
