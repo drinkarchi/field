@@ -1969,7 +1969,7 @@ function myCustomers(uid){return S.customers.filter(function(c){return c.sales==
 function sPlan(uid,iso){return S.salesPlans[uid+'|'+iso]||null}
 function sPlanItems(uid,iso){var p=sPlan(uid,iso);return p?p.items:[]}
 function sVisits(uid,iso){return S.salesVisits.filter(function(v){return v.sales===uid&&v.date===iso})}
-function sVisitValid(v){return v.gps==null?false:v.gps<=S.salesCfg.radius}
+function sVisitValid(v){return !visitFlag(v)}
 function sampleQty(v){return v&&v.sample?SKUS.reduce(function(a,s){return a+(+v.sample[s.sku]||0)},0):0}
 function sampleTxt(v){return SKUS.filter(function(s){return v.sample&&+v.sample[s.sku]}).map(function(s){return s.short+' '+v.sample[s.sku]}).join(', ')}
 function sampleCost(v){return SKUS.reduce(function(a,s){return a+(v.sample&&+v.sample[s.sku]||0)*hppOf(s.sku)},0)}
@@ -2077,6 +2077,7 @@ function salesArea(){var R=aRanges(),T=T_();var SU=salesUsers();var uid=UI.asale
   h+='<div class="cols"><section class="card"><h2>Hasil kunjungan</h2>'+tbl(['Hasil','Periode ini','Pembanding','Porsi'],H.map(function(x){return [hasilPill(x[0]),x[1],x[2],fP(c.vis?x[1]/c.vis*100:null)]}))+'</section>';
   var top=Object.keys(c.cust).sort(function(a,b){return c.cust[b].v-c.cust[a].v}).slice(0,10);
   h+='<section class="card"><h2>10 pelanggan teratas</h2>'+tbl(['Pelanggan','Order','Nilai','Porsi'],top.map(function(cid){var cc=custOf(cid)||{nama:cid};return [esc(cc.nama)+'<br><span class="small muted">'+esc(cc.channel||'')+' · '+esc(picName(cc.sales))+'</span>',c.cust[cid].n,rp(c.cust[cid].v),fP(c.nilai?c.cust[cid].v/c.nilai*100:null)]}))+(top.length&&c.nilai&&c.cust[top[0]].v/c.nilai>0.4?'<span class="small" style="color:var(--butter-fg)">Konsentrasi tinggi: 1 pelanggan menyumbang > 40% nilai order.</span>':'')+'</section></div>';
+  h+=auditHtml(c.V);
   h+='<div class="note">Angka order = nilai order masuk (sebelum pajak, tidak termasuk batal). Nilai terfaktur & dibayar mengikuti data Odoo yang diisi di Sales → Order. Rekomendasi bersifat saran; tugas tetap dibuat manual.</div>';
   return h}
 function salesInsights(){var bad=[],good=[];if(!sHasData())return {bad:bad,good:good};var R=aRanges(),T=T_();var c=sAgg(R.cur),p=sAgg(R.prev),P=sPipe();
@@ -2104,7 +2105,7 @@ function salesXlsx(add){if(!sHasData())return;var R=aRanges();var c=sAgg(R.cur),
   add('Sales - order',[['Tanggal','No','Sales','Pelanggan','Jenis','Skema','Jalur','Status','Nilai (Rp)','SO Odoo','Faktur','Bayar']].concat(c.O.map(function(o){var cc=custOf(o.c)||{};return [o.date,o.no,picName(o.sales),cc.nama||o.c,cc.channel||'',o.skema,isDist(o)?'Distributor':'Langsung',o.status,orderTotal(o),(o.odoo||{}).so||'',(o.odoo||{}).inv||'',(o.odoo||{}).bayar||'Belum']})));
   add('Sales - kunjungan',[['Tanggal','Sales','Pelanggan','Tujuan','Rencana','Hasil','GPS (m)','Valid','Sample (botol)','Tindak lanjut','Tanggal TL']].concat(c.V.map(function(v){var cc=custOf(v.c)||{};return [v.date,picName(v.sales),cc.nama||v.c,v.tujuan||'',v.planned?'Ya':'Tidak',v.hasil,v.gps==null?'':v.gps,sVisitValid(v)?'Ya':'Tidak',sampleQty(v),v.next?v.next.aksi:'',v.next?v.next.date:'']})))}
 /* tindakan BM dari Sales (Beranda) */
-function salesActs(me){if(!salesUsers().length)return [];var P=sPipe();var a=[];
+function salesActs(me){if(!salesUsers().length)return [];var P=sPipe();var a=[];var pp=ptPending().length;if(pp)a.push(['warn','Titik pelanggan baru',pp+' titik lokasi dari kunjungan pertama menunggu verifikasi','sales','hari']);
   var nb=(S.orders||[]).filter(function(o){return o.status==='Baru'}).length;if(nb)a.push(['warn','Order sales',nb+' order baru menunggu SO Odoo'+(P.baruLama.length?' ('+P.baruLama.length+' sudah ≥ 1 hari)':''),'sales','order']);
   if(P.piutLate.length)a.push(['bad','Piutang TOP',P.piutLate.length+' order lewat jatuh tempo · '+rp(P.piutV),'sales','order']);
   if(P.rcvLate.length)a.push(['warn','Terima barang (Sales)',P.rcvLate.length+' pengiriman belum dikonfirmasi pelanggan > 2 hari','sales','order']);
@@ -2158,13 +2159,13 @@ function rcvView(u){var R=UI.rcv;var o=S.orders.find(function(x){return x.id===R
   h+='<div class="card"><label class="fld" for="rcPen">Nama penerima<input class="txt" id="rcPen" data-rcv="penerima" value="'+esc(R.penerima)+'" placeholder="mis. Rina (owner)"></label><div class="row wrap" style="gap:10px;align-items:center"><button class="btn btn-line" data-act="rcvTtd">'+(R.photoFiles.ttd?'Ulangi tanda tangan':'Tanda tangan penerima')+'</button>'+(R.photoFiles.ttd?'<span style="position:relative;display:block;width:150px;height:56px">'+photoImg(R.photoFiles.ttd)+'</span>':'<span class="small muted">Wajib</span>')+'</div></div>';
   h+='<div class="row" style="justify-content:space-between"><button class="btn btn-line" data-act="rcvExit">Batal</button><button class="btn btn-green" data-act="rcvSave">Konfirmasi diterima</button></div>';
   return h}
-function rcvMissing(R,o){var m=[];if(!R.photo)m.push('foto barang');else if(!R.fix&&!R.noGps)m.push('lokasi GPS (tekan Coba lagi lokasi)');if(SKUS.some(function(s){return o.items[s.sku]&&(R.qty[s.sku]===''||isNaN(+R.qty[s.sku]))}))m.push('jumlah diterima');
+function rcvMissing(R,o){var m=[];if(!R.photo)m.push('foto barang');else if((!R.fix||R.lowAcc)&&!R.noGps)m.push(R.lowAcc?'lokasi akurat (tekan Coba lagi lokasi)':'lokasi GPS (tekan Coba lagi lokasi)');if(SKUS.some(function(s){return o.items[s.sku]&&(R.qty[s.sku]===''||isNaN(+R.qty[s.sku]))}))m.push('jumlah diterima');
   if(SKUS.some(function(s){return o.items[s.sku]&&+R.qty[s.sku]!==+o.items[s.sku].qty})&&!(R.alasan||'').trim())m.push('alasan selisih');if(!(R.penerima||'').trim())m.push('nama penerima');if(!R.photoFiles.ttd)m.push('tanda tangan penerima');return m}
 function rcvSave(me){var R=UI.rcv;var o=S.orders.find(function(x){return x.id===R.id});if(!o)return;var m=rcvMissing(R,o);if(m.length){flash('Lengkapi: '+m.join(', '));return}var c=custOf(o.c);
   var q={};SKUS.forEach(function(s){if(o.items[s.sku])q[s.sku]=+R.qty[s.sku]||0});var sel=SKUS.some(function(s){return o.items[s.sku]&&q[s.sku]!==+o.items[s.sku].qty});
   o.terima={date:TODAY,time:R.time,at:nowMs(),by:me.id,qty:q,selisih:sel,alasan:sel?R.alasan.trim():'',penerima:R.penerima.trim(),photo:R.photo,fix:R.fix,gps:R.gps,noGps:!!R.noGps&&!R.fix,ttd:R.photoFiles.ttd};
   o.status='Diterima';if(!o.kirimAt){o.kirimAt=o.terima.at;o.kirimDate=TODAY}
-  if(c&&!(c.lat&&c.lng)&&R.fix){c.lat=String(R.fix.lat);c.lng=String(R.fix.lng)}
+  setPt(c,R.fix,me.nama,R);if(R.lowAcc)o.terima.gps=null;
   logAdd('Barang diterima pelanggan',(c?c.nama:'')+' · '+o.no+(sel?' · SELISIH: '+R.alasan.trim():''));UI.rcv=null;window.scrollTo(0,0);commit('Penerimaan '+o.no+' terkonfirmasi'+(sel?' · selisih dicatat':''))}
 function rcvClick(a,b,me){var id=b.dataset.id;switch(a){
   case 'rcvStart':var o=S.orders.find(function(x){return x.id===id});if(!o)return true;gpsWarm();UI.rcv={id:id,qty:SKUS.reduce(function(q,s){q[s.sku]=o.items[s.sku]?o.items[s.sku].qty:0;return q},{}),photo:null,fix:null,gps:null,time:'',alasan:'',penerima:'',photoFiles:{},ttd:''};UI.sv=null;render();window.scrollTo(0,0);return true;
@@ -2173,7 +2174,7 @@ function rcvClick(a,b,me){var id=b.dataset.id;switch(a){
   case 'rcvNoGps':UI.rcv.noGps=true;render();return true;
   case 'rcvTtd':sigPad(UI.rcv);return true;
   case 'rcvSave':rcvSave(me);return true;
-  case 'rcvPhoto':var R=UI.rcv;var oo=S.orders.find(function(x){return x.id===R.id});var c=custOf(oo.c);
+  case 'rcvPhoto':if(me.role==='sales'&&!isPhone()){flash('Konfirmasi terima hanya bisa dari HP');return true}var R=UI.rcv;var oo=S.orders.find(function(x){return x.id===R.id});var c=custOf(oo.c);
     shoot('terima',{title:(c?c.nama:'')+' · terima '+oo.no}).then(function(r){if(!r||UI.rcv!==R)return;R.photo=r.path;R.time=r.time;R.noGps=false;gpsApply(R,c,r.fix);render()});return true;
   }return false}
 function rcvInput(t){var d=t.dataset;if(d.rcv&&UI.rcv){if(d.rcv.indexOf('qty.')===0){UI.rcv.qty[d.rcv.slice(4)]=t.value;clearTimeout(window.__rcT);window.__rcT=setTimeout(render,500)}else UI.rcv[d.rcv]=t.value;return true}return false}
@@ -2377,13 +2378,13 @@ function svView(u){var w=UI.sv;var c=custOf(w.c);var steps=['Check-in','Hasil ku
     h+='<div class="card"><label class="fld" for="svOc">Catatan order (alamat kirim, jam terima, dll.)<textarea class="txt" id="svOc" rows="2" data-sv="order.catatan">'+esc(o.catatan)+'</textarea></label><div class="row wrap" style="gap:10px;align-items:center"><button class="btn btn-line" data-act="svTtd">'+(o.ttd?'Ulangi tanda tangan':'Tanda tangan PIC')+'</button>'+(o.photoFiles&&o.photoFiles.ttd?'<span style="position:relative;display:block;width:150px;height:56px">'+photoImg(o.photoFiles.ttd)+'</span>':'<span class="small muted">'+(o.via==='distributor'||w.mode?'Opsional':'Wajib untuk TOP & konsinyasi')+'</span>')+'</div></div>';
     h+='<div class="row" style="justify-content:space-between">'+(w.mode?'<button class="btn btn-line" data-act="svExit">Batal</button><button class="btn btn-green" data-act="svSubmit">Simpan order</button>':'<button class="btn btn-line" data-act="svBack">Kembali</button><button class="btn btn-green" data-act="svSubmit">Kirim laporan & order</button>')+'</div>'}
   return h}
-function svMissing(w){var m=[];if(!w.c)m.push('pelanggan');if(!w.photo)m.push('foto check-in');var c=custOf(w.c);if(w.photo&&!w.fix&&!w.noGps)m.push('lokasi GPS (tekan Coba lagi lokasi)');
+function svMissing(w){var m=[];if(!w.c)m.push('pelanggan');if(!w.photo)m.push('foto check-in');var c=custOf(w.c);if(w.photo&&(!w.fix||w.lowAcc)&&!w.noGps)m.push(w.lowAcc?'lokasi akurat (tekan Coba lagi lokasi)':'lokasi GPS (tekan Coba lagi lokasi)');
   if(w.step>=2){if(!w.hasil)m.push('hasil kunjungan');if(w.hasil!=='Tidak bertemu'&&!w.ketemu.nama.trim())m.push('nama yang ditemui');if(w.hasil&&w.hasil!=='Ditolak'&&(!w.next.aksi.trim()||!w.next.date))m.push('langkah berikutnya & tanggal');if(kHasTitip(w.c)&&SKUS.some(function(s){return w.stok[s.sku]===''||w.stok[s.sku]==null||isNaN(+w.stok[s.sku])}))m.push('hitung stok titipan');if(sampleQty(w)>S.salesCfg.maxSample&&!w.catatan.trim())m.push('catatan alasan sample lebih dari '+S.salesCfg.maxSample+' botol')}
   if(w.step===3){var q=SKUS.reduce(function(a,s){return a+(+w.order.items[s.sku].qty||0)},0);if(!q)m.push('jumlah produk');if(w.order.via==='distributor'){if(!distOf(w.order.dist))m.push('distributor')}else{if(w.order.skema!=='Beli putus'&&!(+w.order.top>0))m.push('jangka waktu');if(w.order.skema!=='Beli putus'&&!(w.order.photoFiles&&w.order.photoFiles.ttd))m.push('tanda tangan PIC')}}
   return m}
 function svSubmit(u){var w=UI.sv;var m=svMissing(w);if(m.length){flash('Lengkapi: '+m.join(', '));return}var c=custOf(w.c);
   var v={id:'SV'+rid(),sales:u.id,date:TODAY,c:w.c,planned:w.planned,tujuan:w.tujuan,masuk:w.masuk,gps:w.gps,fix:w.fix,noGps:!!w.noGps&&!w.fix,photo:w.photo,ketemu:w.ketemu,stok:kHasTitip(w.c)?SKUS.reduce(function(a,s){a[s.sku]=+w.stok[s.sku]||0;return a},{}):null,retur:SKUS.some(function(s){return +w.retur[s.sku]})?SKUS.reduce(function(a,s){a[s.sku]=+w.retur[s.sku]||0;return a},{}):null,sample:sampleQty(w)?SKUS.reduce(function(a,s){if(+w.sample[s.sku])a[s.sku]=+w.sample[s.sku];return a},{}):null,hasil:w.hasil,nilai:digits(w.nilai)||null,next:w.hasil==='Ditolak'&&!w.next.aksi.trim()?null:{aksi:w.next.aksi.trim(),date:w.next.date},catatan:w.catatan.trim(),submitAt:nowMs(),order:null};
-  if(c&&!(c.lat&&c.lng)&&w.fix){c.lat=String(w.fix.lat);c.lng=String(w.fix.lng)}
+  setPt(c,w.fix,u.nama,w);if(c&&c.ptAt&&!c.ptOk&&v.gps!=null)v.ptAt=c.ptAt;if(w.lowAcc)v.gps=null;
   var msg='Laporan kunjungan terkirim';
   if(w.hasil==='Order'){var o=w.order;var dv=o.via==='distributor';var od={id:'SO'+rid(),no:orderNo(),sales:u.id,date:TODAY,c:w.c,via:dv?'distributor':'langsung',dist:dv?o.dist:null,skema:dv?'Via distributor':o.skema,top:dv||o.skema==='Beli putus'?0:+o.top,items:SKUS.reduce(function(a,s){var i=o.items[s.sku];if(+i.qty>0)a[s.sku]={qty:+i.qty,harga:+i.harga};return a},{}),catatan:o.catatan.trim(),photoFiles:o.photoFiles,status:'Baru',exported:false,visit:v.id,at:nowMs()};
     if(od.skema==='Konsinyasi'&&c){var LL=kLedger(c.id);var estN=LL.est?sumq(LL.est):0;if(estN+SKUS.reduce(function(a,s){return a+((od.items[s.sku]||{}).qty||0)},0)>kLimit(c))od.lewatBatas=true}
@@ -2398,10 +2399,10 @@ function mgrSales(me){salesInit();var t=UI.stab||'hari';var tabs=[['hari','Hari 
   var h='<div class="stack" style="gap:2px"><span class="small muted">Canvassing Horeca & outlet independen · di luar MT</span><h1>Sales</h1></div><div class="chips">'+tabs.map(function(x){return '<button class="chip'+(t===x[0]?' on':'')+'" data-act="stab" data-v="'+x[0]+'">'+x[1]+(x[0]==='order'&&nb?' · '+nb+' baru':'')+'</button>'}).join('')+'</div>';
   if(UI.sv&&UI.sv.mode==='manual')return h+'<div class="stack" style="gap:12px;max-width:680px">'+svView(me)+'</div>';
   var SU=salesUsers();if(!SU.length&&t!=='atur')return h+'<div class="card"><b>Belum ada anggota Sales</b><span class="small muted">Tambahkan di Pengaturan → Tim → + Tambah anggota → pilih "Sales".</span></div>';
-  if(t==='hari'){h+='<div class="stack" style="gap:12px">'+SU.map(function(u){var it=sPlanItems(u.id,TODAY),vs=sVisits(u.id,TODAY);var done=it.filter(function(x){return vs.some(function(v){return v.c===x.c})}).length;var od=S.orders.filter(function(o){return o.sales===u.id&&o.date===TODAY&&o.status!=='Batal'});
+  if(t==='hari'){h+='<div class="stack" style="gap:12px">'+ptPendCard(me)+SU.map(function(u){var it=sPlanItems(u.id,TODAY),vs=sVisits(u.id,TODAY);var done=it.filter(function(x){return vs.some(function(v){return v.c===x.c})}).length;var od=S.orders.filter(function(o){return o.sales===u.id&&o.date===TODAY&&o.status!=='Batal'});
       return '<section class="card"><div class="row wrap" style="justify-content:space-between"><h2>'+esc(u.nama)+'</h2><div class="row wrap" style="gap:6px">'+lvlPill(it.length&&done>=it.length?'ok':it.length?'warn':'neu','Rencana '+done+'/'+it.length)+lvlPill('info',vs.length+' kunjungan')+lvlPill(vs.some(function(x){return sampleQty(x)>S.salesCfg.maxSample})?'warn':'neu',vs.reduce(function(a,x){return a+sampleQty(x)},0)+' botol sample')+lvlPill(od.length?'ok':'neu',od.length+' order · '+rp(od.reduce(function(a,o){return a+orderTotal(o)},0)))+'</div></div>'
         +tbl(['Pelanggan','Rencana','Jam','Lokasi','Hasil','Sample','Langkah berikutnya'],it.map(function(x){return x.c}).concat(vs.map(function(v){return v.c})).filter(function(c,i,a){return a.indexOf(c)===i}).map(function(cid){var c=custOf(cid)||{nama:cid};var x=it.find(function(y){return y.c===cid});var v=vs.filter(function(y){return y.c===cid}).slice(-1)[0];
-          return [esc(c.nama)+(c.status==='Prospek'?' <span class="small muted">(prospek)</span>':''),x?esc(x.tujuan):'<span class="small muted">di luar rencana</span>',v?v.masuk:'—',v?(v.gps==null?lvlPill('bad','GPS ?'):v.gps<=S.salesCfg.radius?lvlPill('ok',v.gps+' m'):lvlPill('bad',v.gps+' m')):'—',v?hasilPill(v.hasil)+(v.ketemu&&v.ketemu.nama?'<br><span class="small muted">'+esc(v.ketemu.nama)+(v.ketemu.jabatan?' · '+esc(v.ketemu.jabatan):'')+'</span>':''):(x?lvlPill('warn','Belum'):''),v&&v.sample?(sampleQty(v)>S.salesCfg.maxSample?lvlPill('warn',sampleTxt(v)):esc(sampleTxt(v))):'—',v&&v.next?esc(v.next.aksi)+' · '+ddmm(v.next.date):(v&&v.catatan?'<span class="small">'+esc(v.catatan)+'</span>':'—')]}))+'</section>'}).join('')+'</div>'}
+          return [esc(c.nama)+(c.status==='Prospek'?' <span class="small muted">(prospek)</span>':''),x?esc(x.tujuan):'<span class="small muted">di luar rencana</span>',v?v.masuk:'—',v?(visitFlag(v)?lvlPill('bad',visitFlag(v)):lvlPill('ok',v.gps+' m'+(v.fix?' · ±'+v.fix.acc+' m':''))):'—',v?hasilPill(v.hasil)+(v.ketemu&&v.ketemu.nama?'<br><span class="small muted">'+esc(v.ketemu.nama)+(v.ketemu.jabatan?' · '+esc(v.ketemu.jabatan):'')+'</span>':''):(x?lvlPill('warn','Belum'):''),v&&v.sample?(sampleQty(v)>S.salesCfg.maxSample?lvlPill('warn',sampleTxt(v)):esc(sampleTxt(v))):'—',v&&v.next?esc(v.next.aksi)+' · '+ddmm(v.next.date):(v&&v.catatan?'<span class="small">'+esc(v.catatan)+'</span>':'—')]}))+'</section>'}).join('')+'</div>'}
   if(t==='rencana'){if(!UI.sru||!user(UI.sru))UI.sru=SU[0].id;var su=user(UI.sru);var dates=planDates(7);if(!UI.srd||dates.indexOf(UI.srd)<0)UI.srd=dates[0];
     h+='<div class="row wrap" style="gap:10px;max-width:560px">'+sel('srSel','data-srsel="sru"',SU.map(function(u){return [u.id,u.nama]}),UI.sru,'Sales')+sel('srDate','data-srsel="srd"',dates.map(function(d){var n=sPlanItems(su.id,d).length;return [d,(d===TODAY?'Hari ini, ':'')+DOWN[dowOf(d)]+' '+ddmm(d)+(isSat(d)?' (opsional)':'')+' · '+(n?n+' kunjungan':'belum ada rencana')]}),UI.srd,'Tanggal')+'</div>';
     h+='<section class="card" style="max-width:720px"><h2>Rencana '+esc(su.nama)+' · '+longDate(UI.srd)+'</h2><span class="small muted">Sales dan BM sama-sama bisa mengisi. Setiap baris mencatat siapa yang menambahkan. Tempat usaha belum terdaftar? <button class="linkbtn" data-act="sCustNew">Tambah prospek baru</button></span>'+sPlanEditor(su.id,UI.srd,false)+'</section>'}
@@ -2434,13 +2435,13 @@ function salesOdooXlsx(){var X=window.XLSX,wb=X.utils.book_new();
   return X.write(wb,{bookType:'xlsx',type:'array'})}
 
 /* ----- Aksi ----- */
-function salesClick(a,b,me){var id=b.dataset.id,v=b.dataset.v;if(custListClick(a,b,me))return true;if(rcvClick(a,b,me))return true;if(sanalClick(a,b,me))return true;switch(a){
+function salesClick(a,b,me){var id=b.dataset.id,v=b.dataset.v;if(custListClick(a,b,me))return true;if(rcvClick(a,b,me))return true;if(sanalClick(a,b,me))return true;if(acClick(a,b,me))return true;switch(a){
   case 'svStart':gpsWarm();UI.rcv=null;UI.sv=svNew(v||'',me);UI.view='home';render();window.scrollTo(0,0);return true;
   case 'svExit':UI.sv=null;render();return true;
   case 'svGps':var wg=UI.sv;var cg=custOf(wg.c);gpsRetry(wg,cg);return true;
   case 'svNoGps':UI.sv.noGps=true;render();return true;
   case 'svSet':var w=UI.sv;var k=b.dataset.k;if(k==='hasil'){w.hasil=v}else if(k==='order.skema'){w.order.skema=v}else if(k==='order.via'){w.order.via=v}else if(k==='sumber'){w.sumber=v}render();return true;
-  case 'svPhoto':var w2=UI.sv;var c=custOf(w2.c);if(!c){flash('Pilih pelanggan dulu');return true}
+  case 'svPhoto':var w2=UI.sv;var c=custOf(w2.c);if(!c){flash('Pilih pelanggan dulu');return true}if(me.role==='sales'&&!isPhone()){flash('Check-in kunjungan hanya bisa dari HP');return true}
     shoot('sales',{title:c.nama}).then(function(r){if(!r||UI.sv!==w2)return;w2.photo=r.path;w2.masuk=r.time;w2.ts=r.ms;w2.noGps=false;gpsApply(w2,c,r.fix);render();flash(r.fix?'Check-in tersimpan':'Foto tersimpan. Lokasi belum terbaca — tekan Coba lagi lokasi')});return true;
   case 'svNext':var w3=UI.sv;var m=svMissing(w3);if(m.length){flash('Lengkapi: '+m.join(', '));return true}w3.step++;render();window.scrollTo(0,0);return true;
   case 'svBack':UI.sv.step--;render();window.scrollTo(0,0);return true;
@@ -2819,6 +2820,32 @@ function syncClock(){var t0=Date.now();return sb.rpc('server_now').then(function
 var DL_SHIM={save:function(o){return new Promise(function(res,rej){try{var d=o.data;var blob=d instanceof Blob?d:new Blob([d],{type:/\.csv$/i.test(o.filename)?'text/csv':'application/octet-stream'});var u=URL.createObjectURL(blob);var a=document.createElement('a');a.href=u;a.download=o.filename;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(u);a.remove()},1500);res()}catch(e){rej(e)}})}};
 
 /* --- GPS --- */
+/* ----- Anti-curang lokasi Sales ----- */
+function accMax(){return +(S.salesCfg&&S.salesCfg.accMax)||100}
+var ACC_PT=60;
+function isPhone(){var u=navigator.userAgent||'';return /Android|iPhone|iPad|iPod|Mobi/.test(u)||(/Macintosh/.test(u)&&navigator.maxTouchPoints>1)}
+function ptPending(){return (S.customers||[]).filter(function(c){return c.lat&&c.ptAt&&!c.ptOk&&c.status!=='Tidak aktif'})}
+function ptPendCard(me){var L=ptPending();if(!L.length)return '';
+  return '<section class="card" style="gap:8px;border:2px solid var(--butter-fg)"><div class="row wrap" style="justify-content:space-between"><h2>Titik lokasi pelanggan baru · verifikasi</h2>'+lvlPill('warn',L.length+' menunggu')+'</div><span class="small muted">Titik diambil dari GPS kunjungan pertama. Cocokkan dengan alamat di peta. Kunjungan ke pelanggan ini baru dihitung valid setelah titik disetujui.</span>'
+    +tbl(['Pelanggan','Alamat','Titik','Diambil',''],L.map(function(c){return ['<b>'+esc(c.nama)+'</b><br><span class="small muted">'+esc(c.channel||'')+'</span>',esc(c.alamat||'—'),'<a href="'+mapUrl([c.lat,c.lng])+'" target="_blank" rel="noopener">Lihat di peta ↗</a><br><span class="small muted">±'+(c.ptAcc||'?')+' m</span>'+(ptCluster(c).length?'<br>'+lvlPill('bad','Berdempet dengan '+ptCluster(c).map(function(x){return x.nama}).join(', ')):''),esc(c.ptBy||'')+'<br><span class="small muted">'+(c.ptDate?ddmm(c.ptDate):'')+'</span>','<div class="row wrap" style="gap:4px"><button class="btn sm btn-green" data-act="ptOk" data-id="'+c.id+'">Setujui</button><button class="btn sm btn-line" data-act="ptNo" data-id="'+c.id+'">Tolak</button></div>']}))+'</section>'}
+/* titik pelanggan lain milik sales yang sama dalam radius 40 m (indikasi titik diambil dari tempat yang sama, mis. rumah) */
+function ptCluster(c){if(!c.lat)return [];return S.customers.filter(function(x){return x.id!==c.id&&x.lat&&x.sales===c.sales&&hav([+c.lat,+c.lng],[+x.lat,+x.lng])*1000<40})}
+function acClick(a,b,me){var id=b.dataset.id;var c=custOf(id);switch(a){
+  case 'ptOk':if(!c||!(boss(me.role)||me.role==='admin'))return true;c.ptOk=true;c.ptOkBy=me.nama;c.rev=(c.rev||[]).concat([{at:dmy(TODAY)+' '+nowTime(),by:me.nama,what:'Titik lokasi disetujui'}]).slice(-30);logAdd('Setujui titik pelanggan',c.nama);commit('Titik '+c.nama+' disetujui');return true;
+  case 'ptNo':if(!c||!(boss(me.role)||me.role==='admin'))return true;delete c.lat;delete c.lng;delete c.ptAt;delete c.ptOk;c.rev=(c.rev||[]).concat([{at:dmy(TODAY)+' '+nowTime(),by:me.nama,what:'Titik lokasi ditolak (diambil ulang di kunjungan berikutnya)'}]).slice(-30);logAdd('Tolak titik pelanggan',c.nama);commit('Titik '+c.nama+' ditolak · kunjungan terkait tidak valid');return true;
+  }return false}
+function setPt(c,fix,by,o){if(!c||c.lat||!fix||o.lowAcc)return;c.lat=String(fix.lat);c.lng=String(fix.lng);c.ptAt=nowMs();c.ptOk=false;c.ptBy=by;c.ptAcc=fix.acc;c.ptDate=TODAY}
+/* alasan kunjungan tidak valid */
+function visitFlag(v){if(v.noGps||v.gps==null)return v.fix&&v.fix.acc>accMax()?'Lokasi tidak akurat ±'+v.fix.acc+' m':'Tanpa GPS';if(v.fix&&v.fix.acc>accMax())return 'Lokasi tidak akurat ±'+v.fix.acc+' m';if(v.gps>S.salesCfg.radius)return 'Di luar lokasi '+v.gps+' m';
+  if(v.ptAt){var c=custOf(v.c);if(!c||c.ptAt!==v.ptAt)return 'Titik ditolak BM';if(!c.ptOk)return 'Titik belum diverifikasi'}return ''}
+function auditRows(V){var out=[];V.forEach(function(v){var f=visitFlag(v);if(f)out.push({v:v,why:f})});
+  var by={};V.forEach(function(v){if(v.fix){(by[v.sales+'|'+v.date]=by[v.sales+'|'+v.date]||[]).push(v)}});
+  Object.keys(by).forEach(function(k){var L=by[k].sort(function(a,b){return (a.ts||a.submitAt||0)-(b.ts||b.submitAt||0)});for(var i=1;i<L.length;i++){var a=L[i-1],b=L[i];var km=hav([a.fix.lat,a.fix.lng],[b.fix.lat,b.fix.lng]);var hr=((b.ts||b.submitAt||0)-(a.ts||a.submitAt||0))/36e5;if(km>2&&hr>0&&km/hr>80)out.push({v:b,why:'Perpindahan tidak wajar: '+fN(km,1)+' km dalam '+Math.max(1,Math.round(hr*60))+' menit'})}});
+  return out}
+function auditHtml(V){var A=auditRows(V);var cl=(S.customers||[]).filter(function(c){return c.lat&&ptCluster(c).length});
+  return '<section class="card" style="gap:8px"><div class="row wrap" style="justify-content:space-between"><h2>Audit lokasi kunjungan</h2>'+lvlPill(A.length||cl.length?'warn':'ok',A.length+' kunjungan ditandai')+'</div><span class="small muted">Ditandai bila: tanpa GPS, akurasi lebih dari ±'+accMax()+' m (lokasi perkiraan), di luar radius, titik belum/tidak disetujui, atau perpindahan antar kunjungan lebih cepat dari 80 km/jam.</span>'
+    +(A.length?tbl(['Tanggal','Sales','Pelanggan','Jam','Alasan'],A.slice(0,50).map(function(x){var c=custOf(x.v.c)||{nama:x.v.c};return [ddmm(x.v.date),esc(picName(x.v.sales)),esc(c.nama),esc(x.v.masuk||''),lvlPill('warn',x.why)]})):'<span class="small muted">Tidak ada kunjungan yang ditandai di periode ini.</span>')
+    +(cl.length?'<span class="small" style="color:var(--rose-fg)">'+cl.length+' pelanggan punya titik yang berdempet (< 40 m) dengan pelanggan lain milik sales yang sama: '+cl.slice(0,8).map(function(c){return esc(c.nama)}).join(', ')+'. Periksa di peta.</span>':'')+'</section>'}
 /* ----- GPS: dipanaskan saat form dibuka, dipisah dari foto, bisa dicoba ulang tanpa foto ulang ----- */
 var GPS={fix:null,err:null,watch:null};
 function gpsWarm(){if(!navigator.geolocation||GPS.watch!=null)return;try{GPS.watch=navigator.geolocation.watchPosition(function(p){GPS.fix={lat:p.coords.latitude,lng:p.coords.longitude,acc:p.coords.accuracy,at:Date.now()};GPS.err=null},function(e){GPS.err=e&&e.code||2},{enableHighAccuracy:true,maximumAge:10000,timeout:30000})}catch(e){}}
@@ -2828,18 +2855,20 @@ function fixNow(){var r=gpsRecent(90000);if(r)return Promise.resolve(r);return g
 function isIOS(){return /iPhone|iPad|iPod/.test(navigator.userAgent)}
 function gpsHelp(){if(GPS.err===1)return isIOS()?'Izin lokasi ditolak. iPhone: Pengaturan → Privasi & Keamanan → Layanan Lokasi → aktifkan, lalu Situs Web Safari → "Saat Menggunakan" dan nyalakan "Lokasi Akurat". Setelah itu tekan Coba lagi.':'Izin lokasi ditolak. Android: ketuk ikon gembok/ⓘ di samping alamat → Izin → Lokasi → Izinkan, dan pastikan Lokasi HP menyala. Setelah itu tekan Coba lagi.';
   return 'Sinyal GPS belum didapat. Nyalakan Lokasi HP (mode akurasi tinggi), keluar ke area terbuka/dekat pintu, tunggu beberapa detik, lalu tekan Coba lagi.'}
+function accHelp(){return isIOS()?'HP memberi lokasi perkiraan, bukan GPS. iPhone: Pengaturan → Privasi & Keamanan → Layanan Lokasi → Situs Web Safari → nyalakan "Lokasi Akurat". Lalu tekan Coba lagi di area terbuka.':'HP memberi lokasi perkiraan, bukan GPS. Android: ketuk ikon gembok di samping alamat → Izin → Lokasi → pilih "Akurat/Tepat" (bukan Perkiraan), nyalakan Lokasi HP mode akurasi tinggi, lalu tekan Coba lagi di area terbuka.'}
 function fixObj(f){return f?{lat:+f.lat.toFixed(6),lng:+f.lng.toFixed(6),acc:Math.round(f.acc)}:null}
 /* blok status lokasi untuk check-in sales & konfirmasi terima. o = objek wizard (w / R), c = pelanggan */
 function gpsBlock(o,c,act){var ll=c&&c.lat&&c.lng;var pill;
   if(!o.photo)pill=lvlPill(gpsRecent()?'ok':GPS.err?'bad':'info',gpsRecent()?'Lokasi siap (±'+Math.round(gpsRecent().acc)+' m)':GPS.err?'Lokasi belum terbaca':'Mencari lokasi…');
-  else if(o.fix)pill=ll&&o.gps!=null?(o.gps<=S.salesCfg.radius?lvlPill('ok',o.gps+' m dari titik pelanggan · di lokasi'):lvlPill('bad',o.gps+' m dari titik pelanggan · di luar lokasi')):lvlPill('ok','Lokasi terkunci (±'+o.fix.acc+' m) · jadi titik pelanggan');
+  else if(o.fix&&o.lowAcc&&!o.noGps)pill=lvlPill('bad','Lokasi tidak akurat (±'+o.fix.acc+' m) · perlu ≤ '+(ll?accMax():ACC_PT)+' m');
+  else if(o.fix&&!o.lowAcc)pill=ll&&o.gps!=null?(o.gps<=S.salesCfg.radius?lvlPill('ok',o.gps+' m dari titik pelanggan · di lokasi'):lvlPill('bad',o.gps+' m dari titik pelanggan · di luar lokasi')):lvlPill('ok','Lokasi terkunci (±'+o.fix.acc+' m) · jadi titik pelanggan, diverifikasi BM')+(c&&c.ptAt&&!c.ptOk?' '+lvlPill('warn','Titik belum diverifikasi BM'):'');
   else if(o.noGps)pill=lvlPill('warn','Tanpa GPS · kunjungan ditandai tidak valid');
   else pill=lvlPill('bad','GPS tidak terbaca');
   var h='<div class="stack" style="gap:6px"><div>'+pill+'</div>';
-  if(o.photo&&!o.fix&&!o.noGps){h+='<span class="small" style="color:var(--rose-fg)">'+esc(gpsHelp())+'</span><div class="row wrap" style="gap:8px"><button class="btn sm btn-green" data-act="'+act+'Gps">Coba lagi lokasi</button>'+((o.gpsTry||0)>=2?'<button class="btn sm btn-line" data-act="'+act+'NoGps">Lanjut tanpa GPS</button>':'')+'</div>'+((o.gpsTry||0)>=2?'<span class="small muted">Tanpa GPS: laporan tetap terkirim tetapi tidak dihitung kunjungan valid dan akan dicek BM.</span>':'<span class="small muted">Foto tidak perlu diambil ulang.</span>')}
+  if(o.photo&&(!o.fix||o.lowAcc)&&!o.noGps){h+='<span class="small" style="color:var(--rose-fg)">'+esc(o.lowAcc?accHelp():gpsHelp())+'</span><div class="row wrap" style="gap:8px"><button class="btn sm btn-green" data-act="'+act+'Gps">Coba lagi lokasi</button>'+((o.gpsTry||0)>=2?'<button class="btn sm btn-line" data-act="'+act+'NoGps">Lanjut tanpa GPS</button>':'')+'</div>'+((o.gpsTry||0)>=2?'<span class="small muted">Tanpa GPS: laporan tetap terkirim tetapi tidak dihitung kunjungan valid dan akan dicek BM.</span>':'<span class="small muted">Foto tidak perlu diambil ulang.</span>')}
   else if(!o.photo&&GPS.err)h+='<span class="small muted">'+esc(gpsHelp())+'</span>';
   return h+'</div>'}
-function gpsApply(o,c,f){o.fix=fixObj(f);o.gps=!f?null:(c&&c.lat&&c.lng)?Math.round(hav([+c.lat,+c.lng],[f.lat,f.lng])*1000):0}
+function gpsApply(o,c,f){o.fix=fixObj(f);var has=c&&c.lat&&c.lng;o.lowAcc=!!(f&&f.acc>(has?accMax():ACC_PT));o.gps=!f||o.lowAcc?null:has?Math.round(hav([+c.lat,+c.lng],[f.lat,f.lng])*1000):0}
 function gpsRetry(o,c){flash('Mencari lokasi…');o.gpsTry=(o.gpsTry||0)+1;gpsWarm();getFix().then(function(f){f=f||gpsRecent(60000);gpsApply(o,c,f);render();flash(f?'Lokasi terkunci (±'+Math.round(f.acc)+' m)':'Lokasi masih belum terbaca')})}
 function getFix(){return new Promise(function(res){if(!navigator.geolocation){res(null);return}var done=false;var t=setTimeout(function(){if(!done){done=true;res(null)}},20000);
   navigator.geolocation.getCurrentPosition(function(p){if(done)return;done=true;clearTimeout(t);GPS.err=null;GPS.fix={lat:p.coords.latitude,lng:p.coords.longitude,acc:p.coords.accuracy,at:Date.now()};res({lat:p.coords.latitude,lng:p.coords.longitude,acc:p.coords.accuracy,at:nowMs()})},function(e){GPS.err=e&&e.code||2;if(done)return;done=true;clearTimeout(t);res(null)},{enableHighAccuracy:true,timeout:18000,maximumAge:15000})})}
