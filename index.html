@@ -852,6 +852,27 @@ function mgrHome(me){
   if(rs.length)h+='<div class="card"><h2>Restock dari laporan MD · Admin & Distributor</h2><span class="small muted">Di luar kendali MD, jadi tidak dihitung di KPI MD. Tandai terkirim setelah barang sampai di toko.</span>'+rs.slice(0,8).map(function(t){return '<div class="qrow wrap"><span class="grow"><b style="font-size:14px">'+esc(outletOf(t.outlet).nama)+'</b><span class="small muted">'+esc(t.isi)+' · '+esc(t.pic)+' · tenggat '+ddmm(t.due)+'</span></span>'+(t.due<TODAY?lvlPill('bad','Lewat tenggat'):'')+'<button class="btn sm btn-soft" data-act="ticketDone" data-id="'+t.id+'">Tandai terkirim</button></div>'}).join('')+(rs.length>8?'<span class="small muted">'+(rs.length-8)+' lainnya</span>':'')+'</div>';
   return h;
 }
+/* ----- Hapus laporan cek toko (Pemilik/BM) — untuk data percobaan atau laporan salah input ----- */
+function ridTs(id){var s=String(id||'').slice(1,-4);var n=parseInt(s,36);return isNaN(n)?0:n}
+function visitTickets(v){var tv=ridTs(v.id);return S.tickets.filter(function(t){if(t.visit)return t.visit===v.id;if(t.manual||t.outlet!==v.outlet)return false;var tt=ridTs(t.id);return tv&&tt&&Math.abs(tt-tv)<5*60*1000})}
+function canDelVisit(me){return !!me&&boss(me.role)}
+function delVisitBox(v,me){if(!canDelVisit(me))return '';var D=UI.dv&&UI.dv.id===v.id?UI.dv:null;var tk=visitTickets(v);
+  if(!D)return '<div class="row" style="justify-content:flex-start"><button class="linkbtn small" style="color:var(--rose-fg)" data-act="dvOpen" data-id="'+v.id+'">Hapus laporan ini…</button></div>';
+  return '<div class="card" style="gap:10px;border:2px solid var(--rose-fg);background:var(--surface)"><b>Hapus laporan '+longDate(v.date)+' · '+esc(picName(v.md))+'?</b><span class="small muted">Gunakan hanya untuk laporan percobaan atau salah input. Laporan hilang dari Kondisi toko, KPI, dan insentif MD. Penghapusan tercatat di Riwayat aktivitas beserta alasannya. Untuk laporan yang dicurigai palsu, lebih baik tandai "palsu" agar tetap jadi bukti.</span>'
+    +'<label class="fld" for="dv-why">Alasan (wajib)<input class="txt" id="dv-why" data-dv="why" value="'+esc(D.why)+'" placeholder="mis. data percobaan sebelum go-live"></label>'
+    +(tk.length?'<label class="row" style="gap:8px;align-items:center;font-size:13px"><input type="checkbox" data-dv="tk"'+(D.tk?' checked':'')+'> Hapus juga '+tk.length+' tindak lanjut dari laporan ini ('+esc(tk.map(function(t){return t.jenis}).join(', '))+')</label>':'')
+    +'<div class="row wrap" style="gap:8px"><button class="btn btn-danger" data-act="dvGo" data-id="'+v.id+'">Ya, hapus laporan</button><button class="btn btn-line" data-act="dvNo">Batal</button></div></div>'}
+function delVisitClick(a,b,me){switch(a){
+  case 'dvOpen':UI.dv={id:b.dataset.id,why:'',tk:true};render();return true;
+  case 'dvNo':UI.dv=null;render();return true;
+  case 'dvGo':if(!canDelVisit(me))return true;var D=UI.dv;var v=S.visits.find(function(x){return x.id===b.dataset.id});if(!v){UI.dv=null;render();return true}
+    var why=String(D.why||'').trim();if(why.length<5){flash('Tulis alasan penghapusan (min. 5 huruf)');return true}
+    var tk=D.tk?visitTickets(v):[];var tkIds={};tk.forEach(function(t){tkIds[t.id]=1});
+    S.visits=S.visits.filter(function(x){return x.id!==v.id});if(tk.length)S.tickets=S.tickets.filter(function(t){return !tkIds[t.id]});
+    var o=outletOf(v.outlet);logAdd('Hapus laporan cek toko',(o?o.nama:v.outlet)+' · '+dmy(v.date)+' '+(v.arrive||'')+' · MD '+picName(v.md)+(tk.length?' · '+tk.length+' tindak lanjut':'')+' · alasan: '+why);
+    UI.dv=null;UI.lvis=null;commit('Laporan dihapus'+(tk.length?' beserta '+tk.length+' tindak lanjut':''));return true;
+  }return false}
+function delVisitInput(t){var k=t.dataset.dv;if(k==null||!UI.dv)return false;if(k==='tk')UI.dv.tk=t.checked;else UI.dv.why=t.value;return true}
 function storeList(){
   var q=UI.q.trim().toLowerCase();var rank={bad:0,warn:1,ok:2};
   var rows=S.outlets.filter(isActive).map(function(o){return {o:o,s:outletState(o)}}).filter(function(x){return inScope(x.o)&&(UI.lmd==='all'||x.o.md===UI.lmd)&&(UI.lgrp==='all'||grupOf(x.o)===UI.lgrp)&&(UI.filter==='all'||x.s.lvl===UI.filter)&&(!q||x.o.nama.toLowerCase().indexOf(q)>=0)}).sort(function(a,b){return rank[a.s.lvl]-rank[b.s.lvl]});
@@ -870,7 +891,7 @@ function storeList(){
     h+='<div class="row wrap" style="justify-content:space-between;gap:10px"><div class="stack" style="gap:2px"><span class="small muted" style="font-weight:600;letter-spacing:.04em">LAPORAN KUNJUNGAN'+(v===s.v?' TERAKHIR':'')+'</span><h2 style="font-size:18px">'+longDate(v.date)+' · '+esc(v.arrive||'')+' WIB</h2><span class="small muted">MD '+esc(picName(v.md))+' · '+v.dur+' menit</span></div><button class="btn sm btn-line" data-act="openOutlet" data-id="'+o.id+'">Tutup laporan ✕</button></div>';
     if(hist.length>1)h+='<div class="stack" style="gap:6px"><span class="small muted"><b>Pilih kunjungan</b></span><div class="chips">'+hist.map(function(z){var on=z===v;return '<button class="chip sm'+(on?' on':'')+'" aria-pressed="'+on+'" data-act="lvis" data-id="'+z.id+'"><span class="dot d-'+visitLevel(z)+'" style="margin-right:6px"></span>'+ddmm(z.date)+' · '+esc(picName(z.md))+(z.review==='palsu'?' · palsu':'')+'</button>'}).join('')+'</div></div>';
     h+=o.kerjasama==='Konsinyasi'?'<div class="card info" style="border:0"><b>Stok titipan (konsinyasi)</b><span class="small">'+(ke?(ke.count.date==='2000-01-01'?'Outlet baru, belum ada count':'Count terakhir '+dmy(ke.count.date))+': Oolong '+ke.count.q.FSO+' · Soba '+ke.count.q.SOBA+' — stok perkiraan Oolong '+ke.est.FSO+' · Soba '+ke.est.SOBA+' (batas '+o.limit+' pcs)':'Belum ada stock count')+'</span><div><button class="btn sm btn-navy" data-act="go" data-v="konsinyasi" data-t="stok">Buka di Konsinyasi</button></div></div>':'<div class="note">'+esc(o.kerjasama)+': MD hanya cek kondisi toko. Restock lewat '+(o.kerjasama==='Via distributor'?'distributor/Sales':'pembelian outlet')+'.</div>';
-    h+='<div class="card" style="background:var(--surface)">'+visitDetail(v,true)+'</div>';
+    h+='<div class="card" style="background:var(--surface)">'+visitDetail(v,true)+'</div>'+delVisitBox(v,user(S.me));
     h+='<div class="row" style="justify-content:flex-end"><button class="btn btn-soft" data-act="openOutlet" data-id="'+o.id+'">Tutup laporan</button></div></div></div>';
     return h}).join('')+'</div>'+(lmore>0?'<button class="btn btn-soft" data-act="lmore">Tampilkan '+Math.min(20,lmore)+' lagi</button>':'');
 }
@@ -2582,7 +2603,7 @@ function salesOdooXlsx(){var X=window.XLSX,wb=X.utils.book_new();
   return X.write(wb,{bookType:'xlsx',type:'array'})}
 
 /* ----- Aksi ----- */
-function salesClick(a,b,me){var id=b.dataset.id,v=b.dataset.v;if(custListClick(a,b,me))return true;if(rcvClick(a,b,me))return true;if(sanalClick(a,b,me))return true;if(acClick(a,b,me))return true;if(ghClick(a,b,me))return true;switch(a){
+function salesClick(a,b,me){var id=b.dataset.id,v=b.dataset.v;if(custListClick(a,b,me))return true;if(rcvClick(a,b,me))return true;if(sanalClick(a,b,me))return true;if(acClick(a,b,me))return true;if(ghClick(a,b,me))return true;if(delVisitClick(a,b,me))return true;switch(a){
   case 'svStart':gpsWarm();UI.rcv=null;UI.sv=svNew(v||'',me);UI.view='home';render();window.scrollTo(0,0);return true;
   case 'svExit':UI.sv=null;render();return true;
   case 'svGps':var wg=UI.sv;var cg=custOf(wg.c);gpsRetry(wg,cg);return true;
@@ -2633,7 +2654,7 @@ function salesClick(a,b,me){var id=b.dataset.id,v=b.dataset.v;if(custListClick(a
   case 'sOdooDone':var n=0;S.orders.forEach(function(o){if(!o.exported&&o.status!=='Batal'){o.exported=TODAY;n++}});S.customers.forEach(function(c){if(c.status==='Aktif'&&!c.exported){c.exported=TODAY;n++}});S.salesVisits.forEach(function(x){if(!x.exported){x.exported=TODAY;n++}});(S.kBills||[]).forEach(function(b){if(b.status==='Disetujui'&&!b.exported){b.exported=TODAY;n++}});logAdd('Tandai ekspor Odoo sales',n+' baris');commit(n+' data ditandai sudah di Odoo');return true;
   }return false}
 function sPath(o,path,val){var p=path.split('.');var t=o;for(var i=0;i<p.length-1;i++)t=t[p[i]];t[p[p.length-1]]=val}
-function salesInput(t){var d=t.dataset;if(custListInput(t))return true;if(rcvInput(t))return true;if(sanalInput(t))return true;if(ghInput(t))return true;
+function salesInput(t){var d=t.dataset;if(custListInput(t))return true;if(rcvInput(t))return true;if(sanalInput(t))return true;if(ghInput(t))return true;if(delVisitInput(t))return true;
   if(d.sv&&UI.sv){var w=UI.sv;if(d.sv==='salesId'){w.salesId=t.value;w.c='';render();return true}if(d.sv==='c'){w.c=t.value;w.dupOk=false;var cc=custOf(t.value)||{};w.order.via=cc.jalur==='Via distributor'?'distributor':'langsung';if(cc.distributor)w.order.dist=cc.distributor;var it=sPlanItems(S.me,TODAY).find(function(x){return x.c===t.value});w.planned=!!it;if(it)w.tujuan=it.tujuan;w.photo=null;w.fix=null;w.gps=null;render();return true}
     sPath(w,d.sv,t.value);if(/^order\.items/.test(d.sv)){var el=t;clearTimeout(window.__svT);window.__svT=setTimeout(function(){render()},500)}return true}
   if(d.spa){var k=d.k;UI.spa=UI.spa&&UI.spa.k===k?UI.spa:{k:k,c:'',t:TUJUAN[0]};UI.spa[d.spa]=t.value;return true}
@@ -2822,7 +2843,7 @@ function submitVisit(me){
   Object.keys(v.comp||{}).forEach(function(k){if(!v.comp[k].ada)v.comp[k].ada='Tidak ada'});
   SKUS.forEach(function(s){var it=v.items[s.sku];if(it.gudang==='Kosong')it.gudangQty=0;else if(it.gudang!=='Ada')it.gudangQty=null});if(isKons(outletOf(v.outlet))||!wizPrev(w))v.masukAsk=null;if(v.masukAsk!=='Ya'){v.masuk=mkMap(0);v.masukSrc=null}delete v.rsDone;
   S.visits.push(v);var made=0;
-  autoTickets(v).forEach(function(t){var dup=S.tickets.some(function(x){return x.status!=='Selesai'&&x.outlet===v.outlet&&x.jenis===t.jenis&&x.isi===t.isi});if(!dup){S.tickets.push({id:'T'+rid(),pic:t.pic,outlet:v.outlet,jenis:t.jenis,isi:t.isi,due:t.due,status:'Terbuka',doneAt:null});made++}});
+  autoTickets(v).forEach(function(t){var dup=S.tickets.some(function(x){return x.status!=='Selesai'&&x.outlet===v.outlet&&x.jenis===t.jenis&&x.isi===t.isi});if(!dup){S.tickets.push({id:'T'+rid(),pic:t.pic,outlet:v.outlet,jenis:t.jenis,isi:t.isi,due:t.due,status:'Terbuka',doneAt:null,visit:v.id});made++}});
   logAdd('Kirim cek toko',outletOf(v.outlet).nama+' · '+v.dur+' menit');
   UI.wiz=null;UI.view='home';window.scrollTo(0,0);
   var d=mdDay(me,TODAY);
