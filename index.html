@@ -1659,8 +1659,8 @@ function impView(){
     h+='<div class="stack" style="gap:6px;border-top:1px solid var(--line);padding-top:12px"><b style="font-size:13px">3 · Periksa lalu import</b><div class="row wrap" style="gap:8px">'+lvlPill('ok',ok.length+' siap diimport')+(I.rows.length-ok.length?lvlPill('bad',(I.rows.length-ok.length)+' bermasalah (dilewati)'):'')+'</div>'+tbl(['Baris','Outlet','Channel · kerja sama','MD · wilayah','Koordinat','Status'],I.rows.slice(0,50).map(function(x){return [x.n,'<b>'+esc(x.nama||'—')+'</b>',esc((x.channel||'?')+' · '+(x.kerjasama||'?')),esc(picName(x.md)||'?')+' · '+esc(x.wilayah||'?'),x.ll?x.ll.join(', '):'—',x.err.length?'<span style="color:var(--rose-fg);font-weight:600" class="small">'+esc(x.err.join('; '))+'</span>':(x.warn.length?lvlPill('warn','OK')+'<div class="small muted">'+esc(x.warn.join('; '))+'</div>':lvlPill('ok','OK'))]}))+(I.rows.length>50?'<span class="small muted">Menampilkan 50 dari '+I.rows.length+' baris.</span>':'')+'<div><button class="btn btn-green" data-act="impGo"'+(ok.length?'':' disabled')+'>Import '+ok.length+' outlet</button></div></div>'}
   return h+'</div>';
 }
-function impRun(me){var ok=UI.imp.rows.filter(function(x){return !x.err.length});var maxId=S.outlets.reduce(function(a,o){return Math.max(a,+String(o.id).replace(/\D/g,'')||0)},0);var tomorrow=nextWorkday(TODAY);
-  ok.forEach(function(x){maxId++;var o={grup:x.grup||grupOf({nama:x.nama}),id:'o'+maxId,created:tomorrow,kode:nextKode(x.channel),md:x.md,nama:x.nama,channel:x.channel,kerjasama:x.kerjasama,limit:x.limit,radius:150,alamat:x.alamat,maps:'',lat:x.ll?String(x.ll[0]):'',lng:x.ll?String(x.ll[1]):'',pic:x.pic,hp:x.hp,hari:[],targetMinggu:'',top:x.top,wilayah:x.wilayah,rsp:x.rsp,rspPromo:null,harga:x.kerjasama==='Konsinyasi'?x.k:null};S.outlets.push(o)});
+function impRun(me){var ok=UI.imp.rows.filter(function(x){return !x.err.length});var nI=0;var tomorrow=nextWorkday(TODAY);
+  ok.forEach(function(x){nI++;var o={grup:x.grup||grupOf({nama:x.nama}),id:newOid(nI),created:tomorrow,kode:nextKode(x.channel),md:x.md,nama:x.nama,channel:x.channel,kerjasama:x.kerjasama,limit:x.limit,radius:150,alamat:x.alamat,maps:'',lat:x.ll?String(x.ll[0]):'',lng:x.ll?String(x.ll[1]):'',pic:x.pic,hp:x.hp,hari:[],targetMinggu:'',top:x.top,wilayah:x.wilayah,rsp:x.rsp,rspPromo:null,harga:x.kerjasama==='Konsinyasi'?x.k:null};S.outlets.push(o)});
   logAdd('Import outlet dari Excel',ok.length+' outlet');UI.imp=null;commit(ok.length+' outlet berhasil diimport · aktif mulai '+dmy(tomorrow)+' · tambahkan ke rute MD di Penugasan')}
 function impTemplate(){var wb=window.XLSX.utils.book_new();var ex=[impCols(),['FoodHall','FoodHall — Contoh Kemang','Modern Trade','Via distributor',(S.users.find(function(u){return act(u)&&u.role==='md'})||{}).nama||'','Jakarta Selatan','Jl. Kemang Raya 1','-6.26151, 106.81063','Bu Rina (Store Manager)','0812xxxx'].concat(SKUS.map(function(){return 24900}),SKUS.map(function(){return ''}),['',30])];
   window.XLSX.utils.book_append_sheet(wb,window.XLSX.utils.aoa_to_sheet(ex),'Outlet');
@@ -2250,7 +2250,7 @@ function outletTab(){
 
 function saveOutlet(me){
   var f=UI.of;var isNew=!f.id;var tomorrow=nextWorkday(TODAY);
-  var o=isNew?{id:'o'+(S.outlets.length+1),created:tomorrow}:outletOf(f.id);
+  var o=isNew?{id:newOid(),created:tomorrow}:outletOf(f.id);
   var hariOld=JSON.stringify(o.hari||[]);var oldMd=isNew?null:o.md;var hari=f.hari.slice().sort();
   var kode=String(f.kode||'').trim()||(o.kode&&o.channel===f.channel?o.kode:nextKode(f.channel));
   Object.assign(o,{grup:String(f.grup||'').trim()||grupOf({nama:f.nama.trim()}),rsp:(function(){var m=Object.assign({},o.rsp||{});SKUS.forEach(function(s2){m[s2.sku]=+f['rsp'+s2.sku]||0});return m})(),rspPromo:SKUS.some(function(s2){return +f['pr'+s2.sku]})?(function(){var m=Object.assign({},o.rspPromo||{});SKUS.forEach(function(s2){m[s2.sku]=+f['pr'+s2.sku]||0});return m})():null,wilayah:String(f.wilayah||'').trim(),kode:kode,nama:f.nama.trim(),channel:f.channel,kerjasama:f.kerjasama,alamat:f.alamat,maps:f.maps,lat:llCheck(f.ll).ll?String(llCheck(f.ll).ll[0]):'',lng:llCheck(f.ll).ll?String(llCheck(f.ll).ll[1]):'',radius:+f.radius||150,pic:f.pic,hp:f.hp,md:f.md,hari:hari,targetMinggu:+f.targetMinggu||'',top:+f.top||0,limit:+f.limit||120,harga:f.kerjasama==='Konsinyasi'?(function(){var m=Object.assign({},o.harga||{});SKUS.forEach(function(s2){m[s2.sku]=+f['harga'+s2.sku]||0});return m})():null});
@@ -3094,6 +3094,7 @@ var TX_ARR=['visits','tickets','tasks','audits','spgDays','excuses','log','propo
 var TX_MAP=['snap','plans','templates','tagihan','spgReported','approvals','costs','seen','salesPlans','payouts'];
 var ARR_COLLS={};
 function nowMs(){return Date.now()+(SRV_OFF||0)}
+function newOid(n){var mx=S.outlets.reduce(function(a,o){var m=String(o.id).match(/^o(\d+)/);return Math.max(a,m?+m[1]:0)},0)+(n||1);var id;do{id='o'+mx+Math.random().toString(36).replace(/[^a-z]/g,'').slice(0,3)}while(outletOf(id));return id}
 function rid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
 function isMgrRole(r){return r==='approver'||r==='bm'||r==='admin'}
 function lsGet(k){try{return JSON.parse(localStorage.getItem(k)||'null')}catch(e){return null}}
